@@ -1,0 +1,5 @@
+{
+  "name": "Gestione contabilità",
+  "description": "Un'applicazione per istruttori di sport per tenere traccia delle lezioni, sincronizzando i dati online per un accesso multi-dispositivo.",
+  "requestFramePermissions": []
+}
