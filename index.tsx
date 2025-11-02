@@ -94,12 +94,9 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
     }, [lessons, currentDate]);
 
     const summaryData = useMemo(() => {
-        if (!settings) return { totalLessons: 0, totalIncome: 0, paidIncome: 0, lessonsBySport: {}, totalInvoicedIncome: 0, totalNotInvoicedIncome: 0, lessonsByLessonType: {}, lessonsByLocation: {} };
+        if (!settings) return { totalLessons: 0, totalIncome: 0, lessonsBySport: {}, totalInvoicedIncome: 0, totalNotInvoicedIncome: 0, lessonsByLessonType: {}, lessonsByLocation: {} };
         const totalLessons = monthlyLessons.length;
-        const totalIncome = monthlyLessons.reduce((sum, lesson) => sum + lesson.price, 0);
-        
-        // Un non-fatturato è considerato pagato
-        const paidIncome = monthlyLessons.filter(l => !l.invoiced || l.paid).reduce((sum, lesson) => sum + lesson.price, 0);
+        const totalIncome = monthlyLessons.reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
         
         const lessonsBySport = monthlyLessons.reduce((acc, lesson) => {
             const sport = settings.sports.find(s => s.id === lesson.sportId);
@@ -128,10 +125,10 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
             return acc;
         }, {} as Record<string, number>);
         
-        const totalInvoicedIncome = monthlyLessons.filter(l => l.invoiced).reduce((sum, lesson) => sum + lesson.price, 0);
+        const totalInvoicedIncome = monthlyLessons.filter(l => l.invoiced).reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
         const totalNotInvoicedIncome = totalIncome - totalInvoicedIncome;
 
-        return { totalLessons, totalIncome, paidIncome, lessonsBySport, totalInvoicedIncome, totalNotInvoicedIncome, lessonsByLessonType, lessonsByLocation };
+        return { totalLessons, totalIncome, lessonsBySport, totalInvoicedIncome, totalNotInvoicedIncome, lessonsByLessonType, lessonsByLocation };
     }, [monthlyLessons, settings]);
     
     // Data Handlers (Demo vs Firebase)
@@ -162,18 +159,6 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
         }
         if (!user) return;
         db.collection('users').doc(user.uid).collection('lessons').doc(id).delete();
-    };
-
-    const handleTogglePaid = (id: string) => {
-        if (isDemoMode) {
-            setLessons(prev => prev.map(l => l.id === id ? { ...l, paid: !l.paid } : l));
-            return;
-        }
-        if (!user) return;
-        const lesson = lessons.find(l => l.id === id);
-        if(lesson) {
-            db.collection('users').doc(user.uid).collection('lessons').doc(id).update({ paid: !lesson.paid });
-        }
     };
     
     const handleToggleInvoiced = (id: string) => {
@@ -231,7 +216,6 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
                 <Summary
                     totalLessons={summaryData.totalLessons}
                     totalIncome={summaryData.totalIncome}
-                    paidIncome={summaryData.paidIncome}
                     lessonsBySport={summaryData.lessonsBySport}
                     lessonsByLessonType={summaryData.lessonsByLessonType}
                     lessonsByLocation={summaryData.lessonsByLocation}
@@ -242,7 +226,6 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
                     lessons={monthlyLessons}
                     settings={settings}
                     onDelete={handleDeleteLesson}
-                    onTogglePaid={handleTogglePaid}
                     onToggleInvoiced={handleToggleInvoiced}
                     onEdit={handleStartEdit}
                 />

@@ -89,10 +89,7 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
         ...lessonData
       });
     } else {
-      onAddLesson({
-        ...lessonData,
-        paid: false, // Default value for new lessons
-      });
+      onAddLesson(lessonData);
     }
     onClose();
   };

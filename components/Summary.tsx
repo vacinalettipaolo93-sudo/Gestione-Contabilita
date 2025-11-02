@@ -5,7 +5,6 @@ import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, CheckCircleIcon, Cl
 interface SummaryProps {
   totalLessons: number;
   totalIncome: number;
-  paidIncome: number;
   lessonsBySport: Record<string, number>;
   lessonsByLessonType: Record<string, number>;
   lessonsByLocation: Record<string, number>;
@@ -44,18 +43,14 @@ const BreakdownCard: React.FC<{ title: string; data: Record<string, number> }> =
 );
 
 
-const Summary: React.FC<SummaryProps> = ({ totalLessons, totalIncome, paidIncome, lessonsBySport, lessonsByLessonType, lessonsByLocation, totalInvoicedIncome, totalNotInvoicedIncome }) => {
-  const unpaidIncome = totalIncome - paidIncome;
-
+const Summary: React.FC<SummaryProps> = ({ totalLessons, totalIncome, lessonsBySport, lessonsByLessonType, lessonsByLocation, totalInvoicedIncome, totalNotInvoicedIncome }) => {
   return (
     <div className="p-4 space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard title="Lezioni Totali" value={totalLessons.toString()} icon={<ClipboardListIcon className="w-6 h-6 text-blue-800 dark:text-blue-200"/>} iconBgColor="bg-blue-100 dark:bg-blue-900/50" />
-        <SummaryCard title="Incasso Totale" value={`€ ${totalIncome.toFixed(2)}`} icon={<BanknotesIcon className="w-6 h-6 text-green-800 dark:text-green-200"/>} iconBgColor="bg-green-100 dark:bg-green-900/50" />
-        <SummaryCard title="Incasso Fatturato" value={`€ ${totalInvoicedIncome.toFixed(2)}`} icon={<DocumentTextIcon className="w-6 h-6 text-sky-800 dark:text-sky-200"/>} iconBgColor="bg-sky-100 dark:bg-sky-900/50" />
-        <SummaryCard title="Incasso non Fatt." value={`€ ${totalNotInvoicedIncome.toFixed(2)}`} icon={<DocumentMinusIcon className="w-6 h-6 text-orange-800 dark:text-orange-200"/>} iconBgColor="bg-orange-100 dark:bg-orange-900/50" />
-        <SummaryCard title="Pagato" value={`€ ${paidIncome.toFixed(2)}`} icon={<CheckCircleIcon className="w-6 h-6 text-emerald-800 dark:text-emerald-200"/>} iconBgColor="bg-emerald-100 dark:bg-emerald-900/50" />
-        <SummaryCard title="Da Pagare" value={`€ ${unpaidIncome.toFixed(2)}`} icon={<ClockIcon className="w-6 h-6 text-amber-800 dark:text-amber-200"/>} iconBgColor="bg-amber-100 dark:bg-amber-900/50" />
+        <SummaryCard title="Utile Totale" value={`€ ${totalIncome.toFixed(2)}`} icon={<BanknotesIcon className="w-6 h-6 text-green-800 dark:text-green-200"/>} iconBgColor="bg-green-100 dark:bg-green-900/50" />
+        <SummaryCard title="Utile Fatturato" value={`€ ${totalInvoicedIncome.toFixed(2)}`} icon={<DocumentTextIcon className="w-6 h-6 text-sky-800 dark:text-sky-200"/>} iconBgColor="bg-sky-100 dark:bg-sky-900/50" />
+        <SummaryCard title="Utile non Fatt." value={`€ ${totalNotInvoicedIncome.toFixed(2)}`} icon={<DocumentMinusIcon className="w-6 h-6 text-orange-800 dark:text-orange-200"/>} iconBgColor="bg-orange-100 dark:bg-orange-900/50" />
       </div>
       
        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

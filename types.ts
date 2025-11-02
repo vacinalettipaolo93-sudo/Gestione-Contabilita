@@ -30,6 +30,5 @@ export interface Lesson {
   locationId: string;
   price: number;
   cost: number;
-  paid: boolean;
   invoiced: boolean;
 }

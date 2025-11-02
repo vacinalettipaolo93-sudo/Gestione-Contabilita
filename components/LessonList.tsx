@@ -6,12 +6,11 @@ interface LessonListProps {
   lessons: Lesson[];
   settings: Settings;
   onDelete: (id: string) => void;
-  onTogglePaid: (id: string) => void;
   onToggleInvoiced: (id: string) => void;
   onEdit: (lesson: Lesson) => void;
 }
 
-const LessonList: React.FC<LessonListProps> = ({ lessons, settings, onDelete, onTogglePaid, onToggleInvoiced, onEdit }) => {
+const LessonList: React.FC<LessonListProps> = ({ lessons, settings, onDelete, onToggleInvoiced, onEdit }) => {
   if (lessons.length === 0) {
     return (
       <div className="text-center py-16">
@@ -31,7 +30,6 @@ const LessonList: React.FC<LessonListProps> = ({ lessons, settings, onDelete, on
             lesson={lesson} 
             settings={settings} 
             onDelete={onDelete} 
-            onTogglePaid={onTogglePaid} 
             onToggleInvoiced={onToggleInvoiced}
             onEdit={onEdit} 
         />
