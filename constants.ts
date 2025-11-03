@@ -27,14 +27,26 @@ export const DEFAULT_SETTINGS: Settings = {
         { id: TENNIS_GROUP_ID, name: 'Gruppo Tennis' },
       ],
       locations: [
-        { id: SEDE_A_ID, name: 'Sede Principale A', cost: 10 },
-        { id: SEDE_B_ID, name: 'Sede Secondaria B', cost: 15 },
+        { id: SEDE_A_ID, name: 'Sede Principale A' },
+        { id: SEDE_B_ID, name: 'Sede Secondaria B' },
       ],
       prices: {
         [TENNIS_SINGLE_ID]: 30,
         [TENNIS_DOUBLE_ID]: 40,
         [TENNIS_GROUP_ID]: 60,
       },
+      costs: {
+        [SEDE_A_ID]: {
+          [TENNIS_SINGLE_ID]: 10,
+          [TENNIS_DOUBLE_ID]: 12,
+          [TENNIS_GROUP_ID]: 15,
+        },
+        [SEDE_B_ID]: {
+          [TENNIS_SINGLE_ID]: 15,
+          [TENNIS_DOUBLE_ID]: 18,
+          [TENNIS_GROUP_ID]: 20,
+        }
+      }
     },
     {
       id: PADEL_ID,
@@ -44,12 +56,18 @@ export const DEFAULT_SETTINGS: Settings = {
         { id: PADEL_GROUP_ID, name: 'Lezione Gruppo' },
       ],
       locations: [
-         { id: PADEL_CENTER_ID, name: 'Padel Center', cost: 20 },
+         { id: PADEL_CENTER_ID, name: 'Padel Center' },
       ],
       prices: {
         [PADEL_DOUBLE_ID]: 35,
         [PADEL_GROUP_ID]: 55,
       },
+      costs: {
+        [PADEL_CENTER_ID]: {
+          [PADEL_DOUBLE_ID]: 20,
+          [PADEL_GROUP_ID]: 25,
+        }
+      }
     },
   ],
 };

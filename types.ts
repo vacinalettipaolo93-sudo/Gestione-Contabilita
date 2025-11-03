@@ -7,7 +7,6 @@ export interface LessonTypeConfig {
 export interface LocationConfig {
   id: string;
   name: string;
-  cost: number;
 }
 
 export interface SportSetting {
@@ -16,6 +15,7 @@ export interface SportSetting {
   lessonTypes: LessonTypeConfig[];
   locations: LocationConfig[];
   prices: Record<string, number>; // { [lessonTypeId]: price }
+  costs: Record<string, Record<string, number>>; // { [locationId]: { [lessonTypeId]: cost } }
 }
 
 export interface Settings {

@@ -64,11 +64,18 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
     } else {
         setPrice(0);
     }
-    if(selectedSport && locationId) {
-        setCost(selectedSport.locations.find(l => l.id === locationId)?.cost || 0);
+    
+    if (selectedSport && locationId && lessonTypeId && selectedSport.costs) {
+        const locationCosts = selectedSport.costs[locationId];
+        if (locationCosts) {
+            setCost(locationCosts[lessonTypeId] || 0);
+        } else {
+            setCost(0);
+        }
     } else {
         setCost(0);
     }
+
   }, [sportId, lessonTypeId, locationId, selectedSport]);
 
   const handleSubmit = (e: React.FormEvent) => {
