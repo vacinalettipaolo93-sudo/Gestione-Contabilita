@@ -8,10 +8,9 @@ interface HeaderProps {
   onOpenSettings: () => void;
   user: any;
   onSignOut: () => void;
-  isDemoMode: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, onOpenSettings, user, onSignOut, isDemoMode }) => {
+const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, onOpenSettings, user, onSignOut }) => {
   const monthName = currentDate.toLocaleString('it-IT', { month: 'long' });
   const year = currentDate.getFullYear();
   const formattedDate = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
@@ -52,14 +51,12 @@ const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, 
 
         <div className="flex items-center gap-3">
             <span className="text-sm text-slate-600 dark:text-slate-400 hidden sm:inline">{user?.email}</span>
-            {!isDemoMode && (
-                <button
-                    onClick={onSignOut}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-300/70 dark:bg-slate-800/70 rounded-md hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                >
-                    Logout
-                </button>
-            )}
+            <button
+                onClick={onSignOut}
+                className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-300/70 dark:bg-slate-800/70 rounded-md hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+            >
+                Logout
+            </button>
         </div>
       </div>
        <div className="lg:hidden flex items-center justify-center gap-2 md:gap-4 mt-3">

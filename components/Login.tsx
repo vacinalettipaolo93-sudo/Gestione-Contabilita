@@ -93,11 +93,6 @@ const Login: React.FC = () => {
                         </div>
                     </form>
                 </div>
-                 <p className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                    <strong>Nota:</strong> Assicurati di aver creato l'utente <br/>
-                    <code className="font-mono bg-slate-300 dark:bg-slate-700 px-1 py-0.5 rounded">vacinaletti93@hotmail.it</code> / pw: <code className="font-mono bg-slate-300 dark:bg-slate-700 px-1 py-0.5 rounded">123456</code>
-                    <br/>nella console di Firebase Authentication.
-                </p>
             </div>
         </div>
     );

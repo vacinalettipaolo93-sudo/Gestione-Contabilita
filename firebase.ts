@@ -1,5 +1,10 @@
-// These are available globally from the scripts in index.html
-const firebase = (window as any).firebase;
+import { initializeApp } from "firebase/app";
+import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    signOut as firebaseSignOut
+} from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -13,37 +18,19 @@ const firebaseConfig = {
 };
 
 
-// Inizializza Firebase solo se la configurazione è stata inserita.
-// Questo previene il crash dell'app se le credenziali sono mancanti.
-let app, auth, db;
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
-
-if (isConfigured) {
-    try {
-        app = firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        db = firebase.firestore();
-    } catch (e) {
-        console.error("Errore durante l'inizializzazione di Firebase. Controlla la tua configurazione:", e);
-    }
-} else {
-    console.warn("Configurazione Firebase mancante o incompleta in firebase.ts. L'app verrà eseguita in modalità demo.");
-}
-
+const isConfigured = true;
 
 const signInWithEmail = (email, password) => {
-    if (!auth) {
-        return Promise.reject(new Error("Firebase non è configurato. Controlla il file firebase.ts"));
-    }
-    return auth.signInWithEmailAndPassword(email, password);
+    return signInWithEmailAndPassword(auth, email, password);
 };
 
 const signOut = () => {
-    if (!auth) {
-        return Promise.reject(new Error("Firebase non è configurato."));
-    }
-    return auth.signOut();
+    return firebaseSignOut(auth);
 };
 
 export { auth, db, signInWithEmail, signOut, isConfigured };

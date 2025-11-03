@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Lesson, Settings } from './types';
 import Header from './components/Header';
 import Summary from './components/Summary';
@@ -9,22 +11,9 @@ import SettingsForm from './components/SettingsForm';
 import Login from './components/Login';
 import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
-import { auth, db, signOut, isConfigured } from './firebase';
+import { auth, db, signOut } from './firebase';
 
-const DemoModeBanner: React.FC = () => (
-    <div className="bg-yellow-100 dark:bg-yellow-900/50 border-t border-b border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200 px-4 py-3 text-center text-sm" role="alert">
-        <p>
-          <span className="font-bold">Modalità Demo:</span> I tuoi dati non verranno salvati. Per salvare online, configura le tue credenziali nel file <code className="font-mono bg-yellow-200 dark:bg-yellow-800 px-1 py-0.5 rounded">firebase.ts</code>.
-        </p>
-    </div>
-);
-
-
-const AppContainer: React.FC = () => {
-    return <App isDemoMode={!isConfigured} />;
-}
-
-const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
+const App: React.FC = () => {
     const [user, setUser] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -36,44 +25,34 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
 
     // Auth and initial data loading
     useEffect(() => {
-        if (isDemoMode) {
-            setUser({ email: 'demo@user.com' });
-            setSettings(DEFAULT_SETTINGS);
-            setLessons([]);
-            setLoading(false);
-            return;
-        }
-
-        const unsubscribe = auth.onAuthStateChanged((user: any) => {
+        const unsubscribe = onAuthStateChanged(auth, (user: any) => {
             setUser(user);
             setLoading(false);
         });
         return () => unsubscribe();
-    }, [isDemoMode]);
+    }, []);
 
     // Firestore data subscription
     useEffect(() => {
-        if (isDemoMode) return;
-
         if (!user) {
             setLessons([]);
             setSettings(DEFAULT_SETTINGS);
             return;
         };
 
-        const settingsRef = db.collection('users').doc(user.uid).collection('settings').doc('main');
-        const lessonsRef = db.collection('users').doc(user.uid).collection('lessons');
+        const settingsRef = doc(db, 'users', user.uid, 'settings', 'main');
+        const lessonsCollectionRef = collection(db, 'users', user.uid, 'lessons');
 
-        const unsubscribeSettings = settingsRef.onSnapshot(doc => {
-            if (doc.exists) {
-                setSettings(doc.data() as Settings);
+        const unsubscribeSettings = onSnapshot(settingsRef, docSnap => {
+            if (docSnap.exists()) {
+                setSettings(docSnap.data() as Settings);
             } else {
-                settingsRef.set(DEFAULT_SETTINGS);
+                setDoc(settingsRef, DEFAULT_SETTINGS);
                 setSettings(DEFAULT_SETTINGS);
             }
         });
 
-        const unsubscribeLessons = lessonsRef.onSnapshot(snapshot => {
+        const unsubscribeLessons = onSnapshot(lessonsCollectionRef, snapshot => {
             const userLessons = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Lesson[];
             setLessons(userLessons);
         });
@@ -83,7 +62,7 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
             unsubscribeLessons();
         };
 
-    }, [user, isDemoMode]);
+    }, [user]);
 
     const monthlyLessons = useMemo(() => {
         return lessons.filter(lesson => {
@@ -131,55 +110,39 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
         return { totalLessons, totalIncome, lessonsBySport, totalInvoicedIncome, totalNotInvoicedIncome, lessonsByLessonType, lessonsByLocation };
     }, [monthlyLessons, settings]);
     
-    // Data Handlers (Demo vs Firebase)
+    // Data Handlers
     const handleAddLesson = (newLessonData: Omit<Lesson, 'id'>) => {
-        if (isDemoMode) {
-            const newLesson = { ...newLessonData, id: crypto.randomUUID() };
-            setLessons(prev => [...prev, newLesson]);
-            return;
-        }
         if (!user) return;
-        db.collection('users').doc(user.uid).collection('lessons').add(newLessonData);
+        const lessonsCollectionRef = collection(db, 'users', user.uid, 'lessons');
+        addDoc(lessonsCollectionRef, newLessonData);
     };
 
     const handleUpdateLesson = (updatedLessonData: Lesson) => {
-        if (isDemoMode) {
-            setLessons(prev => prev.map(l => l.id === updatedLessonData.id ? updatedLessonData : l));
-            return;
-        }
         if (!user) return;
         const { id, ...data } = updatedLessonData;
-        db.collection('users').doc(user.uid).collection('lessons').doc(id).update(data);
+        const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
+        updateDoc(lessonDocRef, data);
     };
 
     const handleDeleteLesson = (id: string) => {
-        if (isDemoMode) {
-            setLessons(prev => prev.filter(l => l.id !== id));
-            return;
-        }
         if (!user) return;
-        db.collection('users').doc(user.uid).collection('lessons').doc(id).delete();
+        const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
+        deleteDoc(lessonDocRef);
     };
     
     const handleToggleInvoiced = (id: string) => {
-        if (isDemoMode) {
-            setLessons(prev => prev.map(l => l.id === id ? { ...l, invoiced: !l.invoiced } : l));
-            return;
-        }
         if (!user) return;
-         const lesson = lessons.find(l => l.id === id);
+        const lesson = lessons.find(l => l.id === id);
         if(lesson) {
-            db.collection('users').doc(user.uid).collection('lessons').doc(id).update({ invoiced: !lesson.invoiced });
+            const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
+            updateDoc(lessonDocRef, { invoiced: !lesson.invoiced });
         }
     };
 
     const handleSaveSettings = (newSettings: Settings) => {
-        if (isDemoMode) {
-            setSettings(newSettings);
-            return;
-        }
         if (!user) return;
-        db.collection('users').doc(user.uid).collection('settings').doc('main').set(newSettings);
+        const settingsDocRef = doc(db, 'users', user.uid, 'settings', 'main');
+        setDoc(settingsDocRef, newSettings);
     };
 
     const handleStartEdit = (lesson: Lesson) => {
@@ -196,7 +159,7 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
         return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
     }
 
-    if (!isDemoMode && !user) {
+    if (!user) {
         return <Login />;
     }
 
@@ -209,9 +172,7 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 user={user}
                 onSignOut={signOut}
-                isDemoMode={isDemoMode}
             />
-            {isDemoMode && <DemoModeBanner />}
             <main className="max-w-4xl mx-auto pb-24">
                 <Summary
                     totalLessons={summaryData.totalLessons}
@@ -261,6 +222,6 @@ const App: React.FC<{ isDemoMode: boolean }> = ({ isDemoMode }) => {
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
     <React.StrictMode>
-        <AppContainer />
+        <App />
     </React.StrictMode>
 );

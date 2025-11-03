@@ -1,4 +1,3 @@
-// FIX: Removed self-imports that were causing declaration conflicts.
 export interface LessonTypeConfig {
   id: string;
   name: string;
