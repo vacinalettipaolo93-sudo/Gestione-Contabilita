@@ -1,276 +1,307 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, SportSetting, Lesson } from '../types';
-import { PlusIcon, TrashIcon } from './icons';
+import { Settings, Lesson } from '../types';
+import { TrashIcon, PlusIcon } from './icons';
 
-interface SettingsFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  settings: Settings;
-  lessons: Lesson[];
-  onSave: (settings: Settings) => void;
-}
+// Helper to check if a setting is in use
+const isSportInUse = (sportId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId);
+const isLessonTypeInUse = (sportId: string, lessonTypeId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId && l.lessonTypeId === lessonTypeId);
+const isLocationInUse = (sportId: string, locationId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId && l.locationId === locationId);
 
-const SettingsForm: React.FC<SettingsFormProps> = ({ isOpen, onClose, settings, lessons, onSave }) => {
-  const [localSettings, setLocalSettings] = useState<Settings>(settings);
 
-  useEffect(() => {
-    if (isOpen) {
-      setLocalSettings(JSON.parse(JSON.stringify(settings)));
-    }
-  }, [isOpen, settings]);
+const SettingsForm: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    settings: Settings;
+    lessons: Lesson[];
+    onSave: (settings: Settings) => void;
+}> = ({ isOpen, onClose, settings, lessons, onSave }) => {
 
-  if (!isOpen) return null;
+    const [localSettings, setLocalSettings] = useState<Settings>(JSON.parse(JSON.stringify(settings)));
 
-  const handleSave = () => {
-    onSave(localSettings);
-    onClose();
-  };
-  
-  const handleUpdateSport = (sportIndex: number, field: string, value: string) => {
-    const newSports = [...localSettings.sports];
-    (newSports[sportIndex] as any)[field] = value;
-    setLocalSettings({ ...localSettings, sports: newSports });
-  };
-  
-  const handleAddSport = () => {
-      const newSport: SportSetting = {
-          id: crypto.randomUUID(),
-          name: 'Nuovo Sport',
-          lessonTypes: [],
-          locations: [],
-          prices: {},
-          costs: {},
-      };
-      setLocalSettings(prev => ({ ...prev, sports: [...prev.sports, newSport] }));
-  };
+    useEffect(() => {
+        if (isOpen) {
+            // Deep copy to avoid mutating original settings object
+            setLocalSettings(JSON.parse(JSON.stringify(settings)));
+        }
+    }, [settings, isOpen]);
+    
+    const updateSettings = (updater: (draft: Settings) => void) => {
+        setLocalSettings(currentSettings => {
+            const newSettings = JSON.parse(JSON.stringify(currentSettings));
+            updater(newSettings);
+            return newSettings;
+        });
+    };
 
-  const handleRemoveSport = (sportIndex: number) => {
-      if (lessons.some(l => l.sportId === localSettings.sports[sportIndex].id)) {
-          alert('Impossibile eliminare lo sport perché è utilizzato in una o più lezioni.');
-          return;
-      }
-      const newSports = localSettings.sports.filter((_, index) => index !== sportIndex);
-      setLocalSettings({ ...localSettings, sports: newSports });
-  };
-  
-  const handleAddItem = (sportIndex: number, itemType: 'lessonTypes' | 'locations') => {
-      const newSports = [...localSettings.sports];
-      const newId = crypto.randomUUID();
-      const newItem = { id: newId, name: 'Nuovo' };
-      newSports[sportIndex][itemType].push(newItem as any);
-      setLocalSettings({ ...localSettings, sports: newSports });
-  };
-  
-  const handleRemoveItem = (sportIndex: number, itemIndex: number, itemType: 'lessonTypes' | 'locations') => {
-      const itemToRemove = localSettings.sports[sportIndex][itemType][itemIndex];
-      const isInUse = lessons.some(l => l.sportId === localSettings.sports[sportIndex].id && (l.lessonTypeId === itemToRemove.id || l.locationId === itemToRemove.id));
-      if (isInUse) {
-          alert(`Impossibile eliminare questo elemento perché è utilizzato in una o più lezioni.`);
-          return;
-      }
-      const newSports = [...localSettings.sports];
-      const sport = newSports[sportIndex];
+    // Sport Handlers
+    const addSport = () => {
+        updateSettings(draft => {
+            draft.sports.push({
+                id: `sport-${Date.now()}`,
+                name: 'Nuovo Sport',
+                lessonTypes: [],
+                locations: [],
+                prices: {},
+                costs: {},
+            });
+        });
+    };
 
-      if (itemType === 'lessonTypes') {
-          Object.values(sport.costs || {}).forEach(locationCosts => {
-              delete locationCosts[itemToRemove.id];
-          });
-      } else { // 'locations'
-          if (sport.costs) {
-              delete sport.costs[itemToRemove.id];
-          }
-      }
+    const removeSport = (sportIndex: number) => {
+        updateSettings(draft => {
+            draft.sports.splice(sportIndex, 1);
+        });
+    };
 
-      sport[itemType].splice(itemIndex, 1);
-      setLocalSettings({ ...localSettings, sports: newSports });
-  };
-  
-  const handleUpdateItem = (sportIndex: number, itemIndex: number, itemType: 'lessonTypes' | 'locations', field: string, value: string | number) => {
-      const newSports = [...localSettings.sports];
-      (newSports[sportIndex][itemType][itemIndex] as any)[field] = value;
-      setLocalSettings({ ...localSettings, sports: newSports });
-  };
-  
-  const handlePriceChange = (sportIndex: number, lessonTypeId: string, value: number) => {
-      const newSports = [...localSettings.sports];
-      newSports[sportIndex].prices[lessonTypeId] = value;
-      setLocalSettings({ ...localSettings, sports: newSports });
-  }
+    const updateSportName = (sportIndex: number, name: string) => {
+        updateSettings(draft => {
+            draft.sports[sportIndex].name = name;
+        });
+    };
+    
+    // Lesson Type Handlers
+    const addLessonType = (sportIndex: number) => {
+        updateSettings(draft => {
+            draft.sports[sportIndex].lessonTypes.push({
+                id: `lt-${Date.now()}`,
+                name: 'Nuovo Tipo'
+            });
+        });
+    };
 
-  const handleCostChange = (sportIndex: number, locationId: string, lessonTypeId: string, value: number) => {
-    const newSports = [...localSettings.sports];
-    const sport = newSports[sportIndex];
-    if (!sport.costs) {
-        sport.costs = {};
-    }
-    if (!sport.costs[locationId]) {
-        sport.costs[locationId] = {};
-    }
-    sport.costs[locationId][lessonTypeId] = value;
-    setLocalSettings({ ...localSettings, sports: newSports });
-  };
+    const removeLessonType = (sportIndex: number, ltIndex: number) => {
+        updateSettings(draft => {
+            const lessonTypeId = draft.sports[sportIndex].lessonTypes[ltIndex].id;
+            delete draft.sports[sportIndex].prices[lessonTypeId];
+            Object.keys(draft.sports[sportIndex].costs).forEach(locId => {
+                if (draft.sports[sportIndex].costs[locId]) {
+                    delete draft.sports[sportIndex].costs[locId][lessonTypeId];
+                }
+            });
+            draft.sports[sportIndex].lessonTypes.splice(ltIndex, 1);
+        });
+    };
+    
+    const updateLessonTypeName = (sportIndex: number, ltIndex: number, name: string) => {
+        updateSettings(draft => {
+            draft.sports[sportIndex].lessonTypes[ltIndex].name = name;
+        });
+    };
+    
+    // Location Handlers
+    const addLocation = (sportIndex: number) => {
+         updateSettings(draft => {
+            draft.sports[sportIndex].locations.push({
+                id: `loc-${Date.now()}`,
+                name: 'Nuova Sede'
+            });
+        });
+    };
+    
+    const removeLocation = (sportIndex: number, locIndex: number) => {
+         updateSettings(draft => {
+            const locationId = draft.sports[sportIndex].locations[locIndex].id;
+            delete draft.sports[sportIndex].costs[locationId];
+            draft.sports[sportIndex].locations.splice(locIndex, 1);
+        });
+    };
+    
+    const updateLocationName = (sportIndex: number, locIndex: number, name: string) => {
+        updateSettings(draft => {
+            draft.sports[sportIndex].locations[locIndex].name = name;
+        });
+    };
+    
+    // Price & Cost Handlers
+    const updatePrice = (sportIndex: number, lessonTypeId: string, price: number) => {
+        updateSettings(draft => {
+            draft.sports[sportIndex].prices[lessonTypeId] = price;
+        });
+    };
+    
+    const updateCost = (sportIndex: number, locationId: string, lessonTypeId: string, cost: number) => {
+        updateSettings(draft => {
+            if (!draft.sports[sportIndex].costs[locationId]) {
+                draft.sports[sportIndex].costs[locationId] = {};
+            }
+            draft.sports[sportIndex].costs[locationId][lessonTypeId] = cost;
+        });
+    };
+    
+    const handleSave = () => {
+        onSave(localSettings);
+        onClose();
+    };
 
-  return (
-    <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 flex justify-center items-start p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-slate-200 dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-4xl my-8 border border-slate-300 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-2xl font-bold mb-6">Impostazioni</h2>
-        
-        <div className="space-y-6">
-            {localSettings.sports.map((sport, sportIndex) => (
-                <div key={sport.id} className="bg-white text-slate-900 p-4 rounded-lg shadow sport-card">
-                   <div className="flex justify-between items-center mb-4">
-                       <input 
-                         type="text"
-                         value={sport.name}
-                         onChange={(e) => handleUpdateSport(sportIndex, 'name', e.target.value)}
-                         className="input-field text-xl font-bold !p-1 bg-transparent border-0 focus:ring-0 placeholder-slate-500"
-                       />
-                       <button onClick={() => handleRemoveSport(sportIndex)} className="btn-icon-danger">
-                           <TrashIcon className="w-5 h-5"/>
-                       </button>
-                   </div>
+    if (!isOpen) return null;
 
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       {/* Lesson Types */}
-                       <div>
-                           <h3 className="font-semibold mb-2">Tipi Lezione</h3>
-                           <div className="space-y-2">
-                                {sport.lessonTypes.map((lt, ltIndex) => (
-                                   <div key={lt.id} className="flex items-center gap-2">
-                                       <input type="text" value={lt.name} onChange={(e) => handleUpdateItem(sportIndex, ltIndex, 'lessonTypes', 'name', e.target.value)} className="input-field flex-grow"/>
-                                       <button onClick={() => handleRemoveItem(sportIndex, ltIndex, 'lessonTypes')} className="btn-icon-danger">
-                                           <TrashIcon className="w-4 h-4"/>
-                                       </button>
-                                   </div>
-                                ))}
-                               <button onClick={() => handleAddItem(sportIndex, 'lessonTypes')} className="btn-add-sm">
-                                   <PlusIcon className="w-4 h-4 mr-1"/> Aggiungi Tipo
-                               </button>
-                           </div>
-                       </div>
-                       {/* Locations */}
-                       <div>
-                           <h3 className="font-semibold mb-2">Sedi</h3>
-                           <div className="space-y-2">
-                               {sport.locations.map((loc, locIndex) => (
-                                   <div key={loc.id} className="flex items-center gap-2">
-                                       <input type="text" value={loc.name} onChange={(e) => handleUpdateItem(sportIndex, locIndex, 'locations', 'name', e.target.value)} className="input-field flex-grow"/>
-                                       <button onClick={() => handleRemoveItem(sportIndex, locIndex, 'locations')} className="btn-icon-danger">
-                                           <TrashIcon className="w-4 h-4"/>
-                                       </button>
-                                   </div>
-                               ))}
-                               <button onClick={() => handleAddItem(sportIndex, 'locations')} className="btn-add-sm">
-                                   <PlusIcon className="w-4 h-4 mr-1"/> Aggiungi Sede
-                               </button>
-                           </div>
-                       </div>
-                   </div>
+    return (
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 flex justify-center items-start p-4 overflow-y-auto" onClick={onClose}>
+            <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-4xl border border-slate-300 dark:border-slate-700 my-8" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold mb-6">Impostazioni</h2>
 
-                   {/* Prices Table */}
-                   <div className="mt-6">
-                       <h3 className="font-semibold mb-2">Prezzi per "{sport.name}"</h3>
-                       {sport.lessonTypes.length > 0 ? (
-                           <div className="space-y-2">
-                               {sport.lessonTypes.map(lt => (
-                                   <div key={lt.id} className="flex items-center justify-between gap-4 py-1 border-b border-slate-200">
-                                       <label htmlFor={`price-${lt.id}`}>{lt.name}</label>
-                                       <input
-                                           type="number"
-                                           id={`price-${lt.id}`}
-                                           value={sport.prices[lt.id] || ''}
-                                           onChange={(e) => handlePriceChange(sportIndex, lt.id, parseFloat(e.target.value) || 0)}
-                                           className="input-field w-24"
-                                       />
-                                   </div>
-                               ))}
-                           </div>
-                       ) : <p className="text-sm text-slate-500">Aggiungi un tipo di lezione per impostare i prezzi.</p>}
-                   </div>
+                <div className="space-y-6">
+                    {localSettings.sports.map((sport, sportIndex) => {
+                        const sportUsed = isSportInUse(sport.id, lessons);
+                        return (
+                            <div key={sport.id} className="bg-white dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <div className="flex justify-between items-center mb-4">
+                                    <input
+                                        type="text"
+                                        value={sport.name}
+                                        onChange={(e) => updateSportName(sportIndex, e.target.value)}
+                                        className="text-xl font-semibold bg-transparent focus:outline-none focus:ring-2 focus:ring-sky-500 rounded-md px-2 py-1 -ml-2"
+                                    />
+                                    <button
+                                        onClick={() => removeSport(sportIndex)}
+                                        disabled={sportUsed}
+                                        className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-2 rounded-full hover:bg-red-100 dark:hover:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                        title={sportUsed ? "Questo sport è usato in una o più lezioni" : "Elimina sport"}
+                                    >
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
+                                </div>
 
-                   {/* Costs Table */}
-                   <div className="mt-6 overflow-x-auto">
-                       <h3 className="font-semibold mb-2">Costi per Sede e Tipo Lezione per "{sport.name}"</h3>
-                       {sport.lessonTypes.length > 0 && sport.locations.length > 0 ? (
-                           <table className="min-w-full border-collapse">
-                               <thead>
-                                   <tr className="bg-slate-50">
-                                       <th className="p-2 border border-slate-200 text-left text-sm font-medium">Tipo / Sede</th>
-                                       {sport.locations.map(loc => (
-                                           <th key={loc.id} className="p-2 border border-slate-200 text-left text-sm font-medium truncate">{loc.name}</th>
-                                       ))}
-                                   </tr>
-                               </thead>
-                               <tbody>
-                                   {sport.lessonTypes.map(lt => (
-                                       <tr key={lt.id} className="hover:bg-slate-50">
-                                           <td className="p-2 border border-slate-200 font-medium">{lt.name}</td>
-                                           {sport.locations.map(loc => (
-                                               <td key={loc.id} className="p-2 border border-slate-200">
-                                                   <input
-                                                       type="number"
-                                                       value={(sport.costs && sport.costs[loc.id] && sport.costs[loc.id][lt.id]) || ''}
-                                                       onChange={(e) => handleCostChange(sportIndex, loc.id, lt.id, parseFloat(e.target.value) || 0)}
-                                                       className="input-field w-24"
-                                                   />
-                                               </td>
-                                           ))}
-                                       </tr>
-                                   ))}
-                               </tbody>
-                           </table>
-                       ) : (
-                           <p className="text-sm text-slate-500">Aggiungi almeno un tipo di lezione e una sede per impostare i costi.</p>
-                       )}
-                   </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Lesson Types & Prices */}
+                                    <div>
+                                        <h4 className="font-semibold mb-2 text-slate-700 dark:text-slate-300">Tipi di Lezione e Prezzi</h4>
+                                        <div className="space-y-2">
+                                            {sport.lessonTypes.map((lt, ltIndex) => {
+                                                const ltUsed = isLessonTypeInUse(sport.id, lt.id, lessons);
+                                                return (
+                                                    <div key={lt.id} className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={lt.name}
+                                                            onChange={(e) => updateLessonTypeName(sportIndex, ltIndex, e.target.value)}
+                                                            className="flex-grow mt-1 block w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                                                        />
+                                                        <div className="relative">
+                                                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">€</span>
+                                                            <input
+                                                                type="number"
+                                                                value={sport.prices[lt.id] || ''}
+                                                                onChange={(e) => updatePrice(sportIndex, lt.id, parseFloat(e.target.value) || 0)}
+                                                                className="w-28 pl-7 mt-1 block px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            onClick={() => removeLessonType(sportIndex, ltIndex)}
+                                                            disabled={ltUsed}
+                                                            className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1 rounded-full hover:bg-red-100 dark:hover:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                                            title={ltUsed ? "Questo tipo di lezione è in uso" : "Elimina tipo lezione"}
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })}
+                                            <button onClick={() => addLessonType(sportIndex)} className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 font-medium py-1">
+                                                <PlusIcon className="w-4 h-4" /> Aggiungi Tipo Lezione
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Locations */}
+                                    <div>
+                                        <h4 className="font-semibold mb-2 text-slate-700 dark:text-slate-300">Sedi</h4>
+                                        <div className="space-y-2">
+                                            {sport.locations.map((loc, locIndex) => {
+                                                const locUsed = isLocationInUse(sport.id, loc.id, lessons);
+                                                return (
+                                                    <div key={loc.id} className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={loc.name}
+                                                            onChange={(e) => updateLocationName(sportIndex, locIndex, e.target.value)}
+                                                            className="flex-grow mt-1 block w-full px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                                                        />
+                                                        <button
+                                                            onClick={() => removeLocation(sportIndex, locIndex)}
+                                                            disabled={locUsed}
+                                                            className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1 rounded-full hover:bg-red-100 dark:hover:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                                            title={locUsed ? "Questa sede è in uso" : "Elimina sede"}
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })}
+                                             <button onClick={() => addLocation(sportIndex)} className="flex items-center gap-1 text-sm text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 font-medium py-1">
+                                                <PlusIcon className="w-4 h-4" /> Aggiungi Sede
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Costs Table */}
+                                {sport.locations.length > 0 && sport.lessonTypes.length > 0 && (
+                                     <div className="mt-6">
+                                         <h4 className="font-semibold mb-2 text-slate-700 dark:text-slate-300">Costi Sede per Tipo Lezione</h4>
+                                         <div className="overflow-x-auto">
+                                             <table className="w-full text-sm text-left">
+                                                 <thead className="bg-slate-200 dark:bg-slate-800/80">
+                                                     <tr>
+                                                         <th className="p-2 font-medium text-slate-700 dark:text-slate-300">Sede / Tipo Lezione</th>
+                                                         {sport.lessonTypes.map(lt => <th key={lt.id} className="p-2 font-medium text-slate-700 dark:text-slate-300 text-center">{lt.name}</th>)}
+                                                     </tr>
+                                                 </thead>
+                                                 <tbody>
+                                                     {sport.locations.map(loc => (
+                                                         <tr key={loc.id} className="border-b border-slate-200 dark:border-slate-700">
+                                                             <td className="p-2 font-medium">{loc.name}</td>
+                                                             {sport.lessonTypes.map(lt => (
+                                                                 <td key={lt.id} className="p-1">
+                                                                     <div className="relative">
+                                                                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">€</span>
+                                                                         <input
+                                                                             type="number"
+                                                                             value={(sport.costs[loc.id] && sport.costs[loc.id][lt.id]) || ''}
+                                                                             onChange={(e) => updateCost(sportIndex, loc.id, lt.id, parseFloat(e.target.value) || 0)}
+                                                                             className="w-full pl-7 mt-1 block px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                                                                         />
+                                                                     </div>
+                                                                 </td>
+                                                             ))}
+                                                         </tr>
+                                                     ))}
+                                                 </tbody>
+                                             </table>
+                                         </div>
+                                     </div>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
-            ))}
 
-            <button onClick={handleAddSport} className="w-full btn-secondary justify-center">
-                <PlusIcon className="w-5 h-5 mr-2"/> Aggiungi Nuovo Sport
-            </button>
-        </div>
+                <button
+                    onClick={addSport}
+                    className="mt-6 w-full flex justify-center items-center gap-2 px-4 py-2 border-2 border-dashed border-slate-400 dark:border-slate-600 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 hover:border-sky-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                >
+                    <PlusIcon className="w-5 h-5" /> Aggiungi Sport
+                </button>
 
-        <div className="flex justify-end gap-4 pt-8">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Annulla
-            </button>
-            <button type="button" onClick={handleSave} className="btn-primary">
-              Salva Impostazioni
-            </button>
+                <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-slate-300 dark:border-slate-700">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                    >
+                        Annulla
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        className="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900 focus:ring-sky-500 transition-colors"
+                    >
+                        Salva Impostazioni
+                    </button>
+                </div>
+            </div>
         </div>
-        
-        <style>{`
-            .input-field { display: block; width: 100%; padding: 0.5rem 0.75rem; background-color: white; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-            .dark .input-field { background-color: #334155; border-color: #475569; color: #e2e8f0; }
-            .input-field:focus { outline: 2px solid transparent; outline-offset: 2px; border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
-            .btn-primary { display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: #0ea5e9; color: white; border-radius: 0.375rem; font-weight: 500; transition: background-color 0.2s; border: 0;}
-            .btn-primary:hover { background-color: #0284c7; }
-            .btn-secondary { display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: #e2e8f0; color: #1e293b; border-radius: 0.375rem; font-weight: 500; transition: background-color 0.2s; border: 0;}
-            .dark .btn-secondary { background-color: #475569; color: #e2e8f0; }
-            .dark .btn-secondary:hover { background-color: #64748b; }
-            .btn-icon-danger { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem; color: #ef4444; border-radius: 9999px; transition: background-color 0.2s, color 0.2s; border: 0; background-color: transparent;}
-            .btn-icon-danger:hover { background-color: #fee2e2; color: #b91c1c; }
-            .dark .btn-icon-danger:hover { background-color: #450a0a; color: #f87171; }
-            .btn-add-sm { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; font-size: 0.875rem; color: #0ea5e9; background-color: transparent; border: 1px solid #7dd3fc; border-radius: 9999px; transition: all 0.2s;}
-            .btn-add-sm:hover { background-color: #e0f2fe; color: #0284c7; }
-            .dark .btn-add-sm { color: #7dd3fc; border-color: #38bdf8;}
-            .dark .btn-add-sm:hover { background-color: #0c4a6e; color: #bae6fd; }
-            
-            /* Overrides for sport-card in dark mode */
-            .dark .sport-card { color: #1e293b; }
-            .dark .sport-card .input-field { background-color: white; border-color: #cbd5e1; color: #1e293b; }
-            .dark .sport-card .input-field::placeholder { color: #64748b; }
-            .dark .sport-card .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
-            .dark .sport-card .btn-icon-danger:hover { background-color: #fee2e2; color: #b91c1c; }
-            .dark .sport-card .btn-add-sm { color: #0ea5e9; border-color: #7dd3fc; background-color: transparent; }
-            .dark .sport-card .btn-add-sm:hover { background-color: #e0f2fe; color: #0284c7; }
-            .dark .sport-card p, .dark .sport-card label, .dark .sport-card h3, .dark .sport-card th, .dark .sport-card td { color: #1e293b; }
-            .dark .sport-card th { background-color: #f1f5f9 }
-        `}</style>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default SettingsForm;
