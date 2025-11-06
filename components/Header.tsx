@@ -1,16 +1,17 @@
 import React from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, GearIcon } from './icons';
+import { ChevronLeftIcon, ChevronRightIcon, GearIcon, DocumentArrowDownIcon } from './icons';
 
 interface HeaderProps {
   currentDate: Date;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onOpenSettings: () => void;
+  onOpenExport: () => void;
   user: any;
   onSignOut: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, onOpenSettings, user, onSignOut }) => {
+const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, onOpenSettings, onOpenExport, user, onSignOut }) => {
   const monthName = currentDate.toLocaleString('it-IT', { month: 'long' });
   const year = currentDate.getFullYear();
   const formattedDate = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
@@ -22,6 +23,13 @@ const Header: React.FC<HeaderProps> = ({ currentDate, onPrevMonth, onNextMonth, 
             <h1 className="text-xl md:text-2xl font-bold text-sky-600 dark:text-sky-400">
                 Gestione Contabilità
             </h1>
+            <button
+                onClick={onOpenExport}
+                className="text-slate-500 dark:text-slate-400 p-2 rounded-full hover:bg-slate-300/70 dark:hover:bg-slate-800/70 transition-colors"
+                aria-label="Esporta PDF"
+            >
+                <DocumentArrowDownIcon className="w-5 h-5" />
+            </button>
             <button
                 onClick={onOpenSettings}
                 className="text-slate-500 dark:text-slate-400 p-2 rounded-full hover:bg-slate-300/70 dark:hover:bg-slate-800/70 transition-colors"

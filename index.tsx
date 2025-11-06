@@ -8,6 +8,7 @@ import Summary from './components/Summary';
 import LessonList from './components/LessonList';
 import LessonForm from './components/LessonForm';
 import SettingsForm from './components/SettingsForm';
+import ExportForm from './components/ExportForm';
 import Login from './components/Login';
 import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
@@ -21,6 +22,7 @@ const App: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isExportFormOpen, setIsExportFormOpen] = useState(false);
     const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
     // Auth and initial data loading
@@ -170,6 +172,7 @@ const App: React.FC = () => {
                 onPrevMonth={() => setCurrentDate(d => new Date(d.setMonth(d.getMonth() - 1)))}
                 onNextMonth={() => setCurrentDate(d => new Date(d.setMonth(d.getMonth() + 1)))}
                 onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenExport={() => setIsExportFormOpen(true)}
                 user={user}
                 onSignOut={signOut}
             />
@@ -214,6 +217,13 @@ const App: React.FC = () => {
                 settings={settings}
                 lessons={lessons}
                 onSave={handleSaveSettings}
+            />
+            <ExportForm
+                isOpen={isExportFormOpen}
+                onClose={() => setIsExportFormOpen(false)}
+                lessons={lessons}
+                settings={settings}
+                currentDate={currentDate}
             />
         </div>
     );
