@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { Lesson, Settings } from '../types';
 import { DocumentArrowDownIcon, SpinnerIcon } from './icons';
 
@@ -52,7 +52,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 const doc = new jsPDF();
 
                 const addFooters = () => {
-                    const pageCount = doc.internal.getNumberOfPages();
+                    const pageCount = (doc.internal as any).getNumberOfPages();
                     for (let i = 1; i <= pageCount; i++) {
                         doc.setPage(i);
                         doc.setFontSize(9);
@@ -88,7 +88,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 });
 
                 // 5. Generate table
-                (doc as any).autoTable({
+                autoTable(doc, {
                     startY: 40,
                     head: [['Data', 'Sport', 'Tipo Lezione', 'Sede', 'Stato', 'Utile']],
                     body: tableData,
@@ -143,6 +143,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     doc.setFont('helvetica', 'bold');
                     doc.text('Riepiloghi Dettagliati', 14, finalY);
 
+                    // Operational Breakdowns (Lesson Counts)
                     const lessonsBySport = filteredLessons.reduce((acc, lesson) => {
                         const sport = settings.sports.find(s => s.id === lesson.sportId);
                         if (sport) acc[sport.name] = (acc[sport.name] || 0) + 1;
@@ -166,15 +167,65 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         return acc;
                     }, {} as Record<string, number>);
 
+                    // Financial Breakdowns (Profits)
+                    const profitBySport = filteredLessons.reduce((acc, lesson) => {
+                        const sport = settings.sports.find(s => s.id === lesson.sportId);
+                        if (sport) {
+                             const profit = lesson.price - lesson.cost;
+                             acc[sport.name] = (acc[sport.name] || 0) + profit;
+                        }
+                        return acc;
+                    }, {} as Record<string, number>);
+
+                    const profitByLocation = filteredLessons.reduce((acc, lesson) => {
+                        const sport = settings.sports.find(s => s.id === lesson.sportId);
+                        const location = sport?.locations.find(l => l.id === lesson.locationId);
+                        if (location) {
+                            const profit = lesson.price - lesson.cost;
+                            acc[location.name] = (acc[location.name] || 0) + profit;
+                        }
+                        return acc;
+                    }, {} as Record<string, number>);
+
+                    const profitByLessonType = filteredLessons.reduce((acc, lesson) => {
+                        const sport = settings.sports.find(s => s.id === lesson.sportId);
+                        const lessonType = sport?.lessonTypes.find(lt => lt.id === lesson.lessonTypeId);
+                        if (sport && lessonType) {
+                            const key = `${lessonType.name} (${sport.name})`;
+                            const profit = lesson.price - lesson.cost;
+                            acc[key] = (acc[key] || 0) + profit;
+                        }
+                        return acc;
+                    }, {} as Record<string, number>);
+
+
                     const createBreakdownTable = (title: string, data: Record<string, number>) => {
                         if (Object.keys(data).length > 0) {
                             finalY = checkPageBreak(finalY, 25) + 8;
-                            (doc as any).autoTable({
+                            autoTable(doc, {
                                 startY: finalY,
                                 head: [[title, 'Num. Lezioni']],
                                 body: Object.entries(data).sort((a,b) => b[1] - a[1]),
                                 theme: 'grid',
-                                headStyles: { fillColor: [75, 85, 99] },
+                                headStyles: { fillColor: [75, 85, 99] }, // Slate Gray
+                            });
+                            finalY = (doc as any).lastAutoTable.finalY;
+                        }
+                    };
+                    
+                    const createFinancialBreakdownTable = (title: string, data: Record<string, number>) => {
+                        if (Object.keys(data).length > 0) {
+                            finalY = checkPageBreak(finalY, 25) + 8;
+                            const bodyData = Object.entries(data)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([name, total]) => [name, `€ ${total.toFixed(2)}`]);
+                            
+                            autoTable(doc, {
+                                startY: finalY,
+                                head: [[title, 'Utile Totale']],
+                                body: bodyData,
+                                theme: 'grid',
+                                headStyles: { fillColor: [22, 163, 74] }, // Green
                             });
                             finalY = (doc as any).lastAutoTable.finalY;
                         }
@@ -184,8 +235,12 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     createBreakdownTable('Lezioni per Sede', lessonsByLocation);
                     createBreakdownTable('Lezioni per Tipo', lessonsByLessonType);
 
+                    createFinancialBreakdownTable('Utile per Sport', profitBySport);
+                    createFinancialBreakdownTable('Utile per Sede', profitByLocation);
+                    createFinancialBreakdownTable('Utile per Tipo', profitByLessonType);
+
                 } else {
-                    finalY += 15;
+                    finalY = checkPageBreak(finalY) + 15;
                     doc.setFontSize(11);
                     doc.setTextColor(100);
                     doc.text('Nessuna lezione trovata per i criteri selezionati.', 14, finalY);
