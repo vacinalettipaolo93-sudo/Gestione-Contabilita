@@ -12,7 +12,7 @@ interface LessonFormProps {
 
 const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, onUpdateLesson, lessonToEdit, settings }) => {
   const [date, setDate] = useState('');
-  const [sportId, setSportId] = useState<string>(settings.sports[0]?.id || '');
+  const [sportId, setSportId] = useState<string>('');
   const [lessonTypeId, setLessonTypeId] = useState<string>('');
   const [locationId, setLocationId] = useState<string>('');
   const [price, setPrice] = useState(0);
@@ -41,8 +41,8 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
             const firstSport = settings.sports[0];
             setDate(new Date().toISOString().split('T')[0]);
             setSportId(firstSport?.id || '');
-            setLessonTypeId(firstSport?.lessonTypes[0]?.id || '');
-            setLocationId(firstSport?.locations[0]?.id || '');
+            setLessonTypeId(firstSport?.lessonTypes?.[0]?.id || '');
+            setLocationId(firstSport?.locations?.[0]?.id || '');
             setInvoiced(false);
         }
     }

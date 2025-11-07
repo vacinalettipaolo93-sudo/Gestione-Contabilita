@@ -25,7 +25,7 @@ const db = getFirestore(app);
 
 const isConfigured = true;
 
-const signInWithEmail = (email, password) => {
+const signInWithEmail = (email: string, password: string) => {
     return signInWithEmailAndPassword(auth, email, password);
 };
 

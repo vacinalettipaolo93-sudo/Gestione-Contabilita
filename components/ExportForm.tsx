@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Lesson, Settings } from '../types';
@@ -16,6 +16,8 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [filter, setFilter] = useState('all'); // 'all', 'invoiced', 'not-invoiced'
+    const [selectedSportId, setSelectedSportId] = useState('all');
+    const [selectedLocationId, setSelectedLocationId] = useState('all');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -25,9 +27,27 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
             setStartDate(firstDay.toISOString().split('T')[0]);
             setEndDate(lastDay.toISOString().split('T')[0]);
             setFilter('all');
+            setSelectedSportId('all');
+            setSelectedLocationId('all');
             setLoading(false);
         }
     }, [isOpen, currentDate]);
+    
+    const availableLocations = useMemo(() => {
+        if (selectedSportId === 'all') {
+            const allLocations = settings.sports.flatMap(s => s.locations);
+            // Remove duplicates by id
+            return Array.from(new Map(allLocations.map(loc => [loc.id, loc])).values());
+        }
+        const sport = settings.sports.find(s => s.id === selectedSportId);
+        return sport?.locations || [];
+    }, [selectedSportId, settings.sports]);
+
+    // Reset location filter when sport changes
+    useEffect(() => {
+        setSelectedLocationId('all');
+    }, [selectedSportId]);
+
 
     const handleExport = () => {
         setLoading(true);
@@ -43,8 +63,15 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     const dateMatch = lessonDate >= start && lessonDate <= end;
                     if (!dateMatch) return false;
 
-                    if (filter === 'invoiced') return lesson.invoiced;
-                    if (filter === 'not-invoiced') return !lesson.invoiced;
+                    const invoiceMatch = filter === 'all' || (filter === 'invoiced' && lesson.invoiced) || (filter === 'not-invoiced' && !lesson.invoiced);
+                    if(!invoiceMatch) return false;
+                    
+                    const sportMatch = selectedSportId === 'all' || lesson.sportId === selectedSportId;
+                    if (!sportMatch) return false;
+                    
+                    const locationMatch = selectedLocationId === 'all' || lesson.locationId === selectedLocationId;
+                    if (!locationMatch) return false;
+
                     return true;
                 }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -291,6 +318,38 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                             className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
                             />
                         </div>
+                    </div>
+                    
+                    <div>
+                        <label htmlFor="sportFilter" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Filtra per Sport</label>
+                        <select
+                            id="sportFilter"
+                            value={selectedSportId}
+                            onChange={(e) => setSelectedSportId(e.target.value)}
+                            disabled={loading}
+                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                        >
+                            <option value="all">Tutti gli Sport</option>
+                            {settings.sports.map(sport => (
+                                <option key={sport.id} value={sport.id}>{sport.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="locationFilter" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Filtra per Sede</label>
+                        <select
+                            id="locationFilter"
+                            value={selectedLocationId}
+                            onChange={(e) => setSelectedLocationId(e.target.value)}
+                            disabled={loading || availableLocations.length === 0}
+                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                        >
+                            <option value="all">Tutte le Sedi</option>
+                            {availableLocations.map(loc => (
+                                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div>

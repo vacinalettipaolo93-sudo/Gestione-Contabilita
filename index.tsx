@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { Lesson, Settings } from './types';
+import { Lesson, Settings, SportSetting } from './types';
 import Header from './components/Header';
 import Summary from './components/Summary';
 import LessonList from './components/LessonList';
@@ -47,7 +47,25 @@ const App: React.FC = () => {
 
         const unsubscribeSettings = onSnapshot(settingsRef, docSnap => {
             if (docSnap.exists()) {
-                setSettings(docSnap.data() as Settings);
+                const loadedData = docSnap.data();
+                const sportsSource = Array.isArray(loadedData?.sports) ? loadedData.sports : DEFAULT_SETTINGS.sports;
+                
+                // Deeply merge and sanitize settings to prevent crashes from malformed data.
+                const newSettings: Settings = {
+                    ...DEFAULT_SETTINGS,
+                    ...loadedData,
+                    sports: sportsSource
+                        .filter((sport: unknown): sport is Partial<SportSetting> => sport && typeof sport === 'object') // Filter out null/invalid entries
+                        .map((sport: Partial<SportSetting>): SportSetting => ({
+                            id: sport.id || `sport-${Date.now()}`,
+                            name: sport.name || 'Senza nome',
+                            lessonTypes: Array.isArray(sport.lessonTypes) ? sport.lessonTypes : [],
+                            locations: Array.isArray(sport.locations) ? sport.locations : [],
+                            prices: typeof sport.prices === 'object' && sport.prices !== null ? sport.prices : {},
+                            costs: typeof sport.costs === 'object' && sport.costs !== null ? sport.costs : {},
+                        })),
+                };
+                setSettings(newSettings);
             } else {
                 setDoc(settingsRef, DEFAULT_SETTINGS);
                 setSettings(DEFAULT_SETTINGS);
@@ -55,7 +73,19 @@ const App: React.FC = () => {
         });
 
         const unsubscribeLessons = onSnapshot(lessonsCollectionRef, snapshot => {
-            const userLessons = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Lesson[];
+            const userLessons = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    date: data.date || '',
+                    sportId: data.sportId || '',
+                    lessonTypeId: data.lessonTypeId || '',
+                    locationId: data.locationId || '',
+                    price: data.price || 0,
+                    cost: data.cost || 0,
+                    invoiced: data.invoiced || false,
+                } as Lesson;
+            });
             setLessons(userLessons);
         });
 
@@ -89,8 +119,9 @@ const App: React.FC = () => {
         
         const lessonsByLessonType = monthlyLessons.reduce((acc, lesson) => {
             const sport = settings.sports.find(s => s.id === lesson.sportId);
-            const lessonType = sport?.lessonTypes.find(lt => lt.id === lesson.lessonTypeId);
-            if (sport && lessonType) {
+            if (!sport) return acc; // <-- FIX: Gracefully handle deleted sports
+            const lessonType = sport.lessonTypes.find(lt => lt.id === lesson.lessonTypeId);
+            if (lessonType) {
                  const key = `${sport.name} - ${lessonType.name}`;
                  acc[key] = (acc[key] || 0) + 1;
             }
@@ -99,7 +130,8 @@ const App: React.FC = () => {
         
         const lessonsByLocation = monthlyLessons.reduce((acc, lesson) => {
             const sport = settings.sports.find(s => s.id === lesson.sportId);
-            const location = sport?.locations.find(l => l.id === lesson.locationId);
+            if (!sport) return acc; // <-- FIX: Gracefully handle deleted sports
+            const location = sport.locations.find(l => l.id === lesson.locationId);
             if (location) {
                  acc[location.name] = (acc[location.name] || 0) + 1;
             }
