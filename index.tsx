@@ -54,6 +54,7 @@ const App: React.FC = () => {
                 const newSettings: Settings = {
                     ...DEFAULT_SETTINGS,
                     ...loadedData,
+                    taxRate: typeof loadedData?.taxRate === 'number' ? loadedData.taxRate : 0,
                     sports: sportsSource
                         .filter((sport: unknown): sport is Partial<SportSetting> => sport && typeof sport === 'object') // Filter out null/invalid entries
                         .map((sport: Partial<SportSetting>): SportSetting => ({
@@ -105,7 +106,7 @@ const App: React.FC = () => {
     }, [lessons, currentDate]);
 
     const summaryData = useMemo(() => {
-        if (!settings) return { totalLessons: 0, totalIncome: 0, lessonsBySport: {}, totalInvoicedIncome: 0, totalNotInvoicedIncome: 0, lessonsByLessonType: {}, lessonsByLocation: {} };
+        if (!settings) return { totalLessons: 0, totalIncome: 0, lessonsBySport: {}, totalInvoicedGross: 0, totalInvoicedNet: 0, totalNotInvoicedIncome: 0, lessonsByLessonType: {}, lessonsByLocation: {}, taxRate: 0 };
         const totalLessons = monthlyLessons.length;
         const totalIncome = monthlyLessons.reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
         
@@ -119,7 +120,7 @@ const App: React.FC = () => {
         
         const lessonsByLessonType = monthlyLessons.reduce((acc, lesson) => {
             const sport = settings.sports.find(s => s.id === lesson.sportId);
-            if (!sport) return acc; // <-- FIX: Gracefully handle deleted sports
+            if (!sport) return acc;
             const lessonType = sport.lessonTypes.find(lt => lt.id === lesson.lessonTypeId);
             if (lessonType) {
                  const key = `${sport.name} - ${lessonType.name}`;
@@ -130,7 +131,7 @@ const App: React.FC = () => {
         
         const lessonsByLocation = monthlyLessons.reduce((acc, lesson) => {
             const sport = settings.sports.find(s => s.id === lesson.sportId);
-            if (!sport) return acc; // <-- FIX: Gracefully handle deleted sports
+            if (!sport) return acc;
             const location = sport.locations.find(l => l.id === lesson.locationId);
             if (location) {
                  acc[location.name] = (acc[location.name] || 0) + 1;
@@ -138,13 +139,16 @@ const App: React.FC = () => {
             return acc;
         }, {} as Record<string, number>);
         
-        const totalInvoicedIncome = monthlyLessons.filter(l => l.invoiced).reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
-        const totalNotInvoicedIncome = totalIncome - totalInvoicedIncome;
+        const totalInvoicedGross = monthlyLessons.filter(l => l.invoiced).reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
+        
+        const taxRate = settings.taxRate || 0;
+        const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
 
-        return { totalLessons, totalIncome, lessonsBySport, totalInvoicedIncome, totalNotInvoicedIncome, lessonsByLessonType, lessonsByLocation };
+        const totalNotInvoicedIncome = totalIncome - totalInvoicedGross;
+
+        return { totalLessons, totalIncome, lessonsBySport, totalInvoicedGross, totalInvoicedNet, totalNotInvoicedIncome, lessonsByLessonType, lessonsByLocation, taxRate };
     }, [monthlyLessons, settings]);
     
-    // Data Handlers
     const handleAddLesson = (newLessonData: Omit<Lesson, 'id'>) => {
         if (!user) return;
         const lessonsCollectionRef = collection(db, 'users', user.uid, 'lessons');
@@ -190,7 +194,7 @@ const App: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center">Caricamento...</div>;
+        return <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-indigo-500 font-bold animate-pulse">Caricamento...</div>;
     }
 
     if (!user) {
@@ -208,15 +212,16 @@ const App: React.FC = () => {
                 user={user}
                 onSignOut={signOut}
             />
-            <main className="max-w-4xl mx-auto pb-24">
+            <main className="max-w-5xl mx-auto pb-24">
                 <Summary
                     totalLessons={summaryData.totalLessons}
-                    totalIncome={summaryData.totalIncome}
                     lessonsBySport={summaryData.lessonsBySport}
                     lessonsByLessonType={summaryData.lessonsByLessonType}
                     lessonsByLocation={summaryData.lessonsByLocation}
-                    totalInvoicedIncome={summaryData.totalInvoicedIncome}
+                    totalInvoicedGross={summaryData.totalInvoicedGross}
+                    totalInvoicedNet={summaryData.totalInvoicedNet}
                     totalNotInvoicedIncome={summaryData.totalNotInvoicedIncome}
+                    taxRate={summaryData.taxRate}
                 />
                 <LessonList
                     lessons={monthlyLessons}
@@ -229,7 +234,7 @@ const App: React.FC = () => {
             <div className="fixed bottom-6 right-6 z-20">
                  <button
                     onClick={handleOpenFormForAdd}
-                    className="bg-gradient-to-br from-sky-500 to-cyan-400 hover:from-sky-600 hover:to-cyan-500 text-white rounded-full p-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-cyan-300 dark:focus:ring-cyan-800 transition-all transform hover:scale-110"
+                    className="bg-gradient-to-br from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white rounded-full p-4 shadow-xl shadow-indigo-500/30 focus:outline-none transition-all transform hover:scale-110 active:scale-95"
                     aria-label="Aggiungi nuova lezione"
                 >
                     <PlusIcon className="w-8 h-8" />

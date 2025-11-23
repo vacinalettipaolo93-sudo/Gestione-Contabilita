@@ -25,14 +25,12 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
   const availableLessonTypes = useMemo(() => selectedSport?.lessonTypes || [], [selectedSport]);
   const availableLocations = useMemo(() => selectedSport?.locations || [], [selectedSport]);
   
-  // Effect to handle initialization and editing
   useEffect(() => {
     if (isOpen) {
         if (isEditing && lessonToEdit) {
             setSportId(lessonToEdit.sportId);
             setDate(lessonToEdit.date);
             setInvoiced(lessonToEdit.invoiced || false);
-            // Defer setting these to let the sportId effect run first
             setTimeout(() => {
                 setLessonTypeId(lessonToEdit.lessonTypeId);
                 setLocationId(lessonToEdit.locationId);
@@ -48,7 +46,6 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
     }
   }, [lessonToEdit, isOpen, settings]);
 
-  // Effect to update available options when sport changes
   useEffect(() => {
     if (!isEditing || (isEditing && lessonToEdit?.sportId !== sportId)) {
         setLessonTypeId(availableLessonTypes[0]?.id || '');
@@ -57,7 +54,6 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
   }, [sportId, availableLessonTypes, availableLocations, isEditing, lessonToEdit]);
 
 
-  // Effect to update price and cost
   useEffect(() => {
     if(selectedSport && lessonTypeId) {
         setPrice(selectedSport.prices[lessonTypeId] || 0);
@@ -104,94 +100,109 @@ const LessonForm: React.FC<LessonFormProps> = ({ isOpen, onClose, onAddLesson, o
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md border border-slate-300 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-2xl font-bold mb-4">{isEditing ? 'Modifica Lezione' : 'Aggiungi Lezione'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
+      <div className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10 transform transition-all" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-2xl font-bold mb-6 text-white border-b border-white/5 pb-4">
+            {isEditing ? 'Modifica Lezione' : 'Nuova Lezione'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="date" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Data</label>
+            <label htmlFor="date" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Data</label>
             <input
               type="date"
               id="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+              className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
             />
           </div>
 
-          <div>
-            <label htmlFor="sport" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Sport</label>
-            <select
-              id="sport"
-              value={sportId}
-              onChange={(e) => setSportId(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-            >
-              {settings.sports.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label htmlFor="sport" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Sport</label>
+                <select
+                id="sport"
+                value={sportId}
+                onChange={(e) => setSportId(e.target.value)}
+                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
+                >
+                {settings.sports.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="location" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Sede</label>
+                <select
+                id="location"
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
+                >
+                {availableLocations.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+                </select>
+            </div>
           </div>
 
           <div>
-            <label htmlFor="lessonType" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Tipo Lezione</label>
+            <label htmlFor="lessonType" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Tipo Lezione</label>
             <select
               id="lessonType"
               value={lessonTypeId}
               onChange={(e) => setLessonTypeId(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+              className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
             >
               {availableLessonTypes.map((lt) => (
                 <option key={lt.id} value={lt.id}>{lt.name}</option>
               ))}
             </select>
           </div>
-
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Sede</label>
-            <select
-              id="location"
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-            >
-              {availableLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-          </div>
           
-          <div>
-            <label className="flex items-center mt-4">
-              <input
-                type="checkbox"
-                checked={invoiced}
-                onChange={(e) => setInvoiced(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-              />
-              <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">Lezione Fatturata</span>
-            </label>
+          <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+              <label className="flex items-center cursor-pointer">
+                <input
+                    type="checkbox"
+                    checked={invoiced}
+                    onChange={(e) => setInvoiced(e.target.checked)}
+                    className="w-5 h-5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 bg-zinc-800"
+                />
+                <span className="ml-3 text-sm font-medium text-zinc-300">Lezione Fatturata</span>
+              </label>
           </div>
 
-          <div className="pt-2 flex justify-between items-center">
-            <p className="text-slate-500 dark:text-slate-400">Prezzo: <span className="font-bold text-lg text-green-500 dark:text-green-400">€ {price.toFixed(2)}</span></p>
-            <p className="text-slate-500 dark:text-slate-400">Costo: <span className="font-bold text-lg text-red-500">€ {cost.toFixed(2)}</span></p>
+          <div className="flex justify-between items-center py-2 px-1">
+            <div className="text-center">
+                <span className="block text-xs text-zinc-500 uppercase font-bold">Prezzo</span>
+                <span className="block font-bold text-xl text-emerald-500">€ {price.toFixed(2)}</span>
+            </div>
+            <div className="h-8 w-px bg-zinc-800"></div>
+            <div className="text-center">
+                <span className="block text-xs text-zinc-500 uppercase font-bold">Costo</span>
+                <span className="block font-bold text-xl text-red-500">€ {cost.toFixed(2)}</span>
+            </div>
+            <div className="h-8 w-px bg-zinc-800"></div>
+             <div className="text-center">
+                <span className="block text-xs text-zinc-500 uppercase font-bold">Utile</span>
+                <span className="block font-bold text-xl text-indigo-500">€ {(price - cost).toFixed(2)}</span>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              className="px-5 py-2.5 bg-white/5 text-zinc-300 rounded-xl hover:bg-white/10 transition-colors text-sm font-semibold"
             >
               Annulla
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900 focus:ring-sky-500 transition-colors"
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white rounded-xl hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/20 text-sm font-semibold transition-all transform hover:scale-[1.02]"
             >
-              {isEditing ? 'Salva Modifiche' : 'Aggiungi Lezione'}
+              {isEditing ? 'Salva' : 'Aggiungi'}
             </button>
           </div>
         </form>

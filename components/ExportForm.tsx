@@ -15,9 +15,10 @@ interface ExportFormProps {
 const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, settings, currentDate }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [filter, setFilter] = useState('all'); // 'all', 'invoiced', 'not-invoiced'
+    const [filter, setFilter] = useState('all'); 
     const [selectedSportId, setSelectedSportId] = useState('all');
     const [selectedLocationId, setSelectedLocationId] = useState('all');
+    const [includeNetDetails, setIncludeNetDetails] = useState(true);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -29,6 +30,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
             setFilter('all');
             setSelectedSportId('all');
             setSelectedLocationId('all');
+            setIncludeNetDetails(true);
             setLoading(false);
         }
     }, [isOpen, currentDate]);
@@ -36,14 +38,12 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
     const availableLocations = useMemo(() => {
         if (selectedSportId === 'all') {
             const allLocations = settings.sports.flatMap(s => s.locations);
-            // Remove duplicates by id
             return Array.from(new Map(allLocations.map(loc => [loc.id, loc])).values());
         }
         const sport = settings.sports.find(s => s.id === selectedSportId);
         return sport?.locations || [];
     }, [selectedSportId, settings.sports]);
 
-    // Reset location filter when sport changes
     useEffect(() => {
         setSelectedLocationId('all');
     }, [selectedSportId]);
@@ -51,10 +51,8 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
 
     const handleExport = () => {
         setLoading(true);
-        // Use a timeout to allow the UI to update to the loading state before the blocking PDF generation starts
         setTimeout(() => {
             try {
-                // 1. Filter lessons
                 const filteredLessons = lessons.filter(lesson => {
                     const lessonDate = new Date(lesson.date + 'T00:00:00');
                     const start = new Date(startDate + 'T00:00:00');
@@ -75,7 +73,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     return true;
                 }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-                // 2. Initialize jsPDF
                 const doc = new jsPDF();
 
                 const addFooters = () => {
@@ -88,7 +85,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     }
                 };
 
-                // 3. Add title and info
                 doc.setFontSize(18);
                 doc.text('Resoconto Lezioni', 14, 22);
                 doc.setFontSize(11);
@@ -97,7 +93,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('it-IT');
                 doc.text(`Periodo: dal ${formattedStartDate} al ${formattedEndDate}`, 14, 30);
 
-                // 4. Prepare data for autoTable
                 const tableData = filteredLessons.map(lesson => {
                     const sport = settings.sports.find(s => s.id === lesson.sportId);
                     const lessonType = sport?.lessonTypes.find(lt => lt.id === lesson.lessonTypeId);
@@ -114,18 +109,16 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     ];
                 });
 
-                // 5. Generate table
                 autoTable(doc, {
                     startY: 40,
                     head: [['Data', 'Sport', 'Tipo Lezione', 'Sede', 'Stato', 'Utile']],
                     body: tableData,
                     theme: 'striped',
-                    headStyles: { fillColor: [3, 169, 244] } // Sky blue
+                    headStyles: { fillColor: [79, 70, 229] } // Indigo
                 });
                 
                 let finalY = (doc as any).lastAutoTable.finalY;
 
-                // Helper to check for page breaks
                 const checkPageBreak = (y: number, margin = 0) => {
                     if (y + margin > 270) {
                         doc.addPage();
@@ -134,43 +127,64 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     return y;
                 };
 
-                // 6. Calculate and add totals or empty message
                 if (filteredLessons.length > 0) {
                     finalY = checkPageBreak(finalY, 20) + 15;
                     
-                    const totalInvoiced = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
+                    const totalInvoicedGross = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
                     const totalNotInvoiced = filteredLessons.filter(l => !l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
-                    const totalProfit = totalInvoiced + totalNotInvoiced;
+                    
+                    const taxRate = settings.taxRate || 0;
+                    const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
+
+                    const totalOverall = includeNetDetails ? (totalInvoicedNet + totalNotInvoiced) : (totalInvoicedGross + totalNotInvoiced);
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Riepilogo Totali', 14, finalY);
+                    doc.text('Riepilogo Finanziario', 14, finalY);
                     finalY += 8;
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(11);
 
-                    doc.text(`Totale Utile Fatturato:`, 14, finalY);
-                    doc.text(`€ ${totalInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.text(`Fatturato Lordo (Fatturato):`, 14, finalY);
+                    doc.text(`€ ${totalInvoicedGross.toFixed(2)}`, 200, finalY, { align: 'right' });
                     finalY += 7;
                     
-                    doc.text(`Totale Utile Non Fatturato:`, 14, finalY);
-                    doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 1;
+                    if (includeNetDetails) {
+                        doc.setTextColor(150);
+                        doc.text(`Tasse / Ritenuta applicata (${taxRate}%):`, 14, finalY);
+                        doc.text(`- € ${(totalInvoicedGross * (taxRate / 100)).toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.setTextColor(100);
+                        finalY += 7;
+                        
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`Fatturato Netto:`, 14, finalY);
+                        doc.text(`€ ${totalInvoicedNet.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.setFont('helvetica', 'normal');
+                        finalY += 10;
+                    } else {
+                        finalY += 3;
+                    }
                     
-                    doc.line(14, finalY, 200, finalY); // separator line
+                    doc.text(`Utile Non Fatturato:`, 14, finalY);
+                    doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    finalY += 2;
+                    
+                    doc.line(14, finalY, 200, finalY); 
                     finalY += 7;
                     
                     doc.setFont('helvetica', 'bold');
-                    doc.text(`Utile Complessivo:`, 14, finalY);
-                    doc.text(`€ ${totalProfit.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.setTextColor(0);
+                    const totalLabel = includeNetDetails ? 'Totale Netto Complessivo:' : 'Totale Complessivo (Lordo):';
+                    doc.text(totalLabel, 14, finalY);
+                    doc.text(`€ ${totalOverall.toFixed(2)}`, 200, finalY, { align: 'right' });
+                     doc.setTextColor(100);
 
-                    // 7. Add detailed breakdowns
+
                     finalY = checkPageBreak(finalY, 20) + 15;
                     doc.setFontSize(14);
                     doc.setFont('helvetica', 'bold');
                     doc.text('Riepiloghi Dettagliati', 14, finalY);
 
-                    // Operational Breakdowns (Lesson Counts)
                     const lessonsBySport = filteredLessons.reduce((acc, lesson) => {
                         const sport = settings.sports.find(s => s.id === lesson.sportId);
                         if (sport) acc[sport.name] = (acc[sport.name] || 0) + 1;
@@ -194,7 +208,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         return acc;
                     }, {} as Record<string, number>);
 
-                    // Financial Breakdowns (Profits)
                     const profitBySport = filteredLessons.reduce((acc, lesson) => {
                         const sport = settings.sports.find(s => s.id === lesson.sportId);
                         if (sport) {
@@ -234,7 +247,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                                 head: [[title, 'Num. Lezioni']],
                                 body: Object.entries(data).sort((a,b) => b[1] - a[1]),
                                 theme: 'grid',
-                                headStyles: { fillColor: [75, 85, 99] }, // Slate Gray
+                                headStyles: { fillColor: [75, 85, 99] }, 
                             });
                             finalY = (doc as any).lastAutoTable.finalY;
                         }
@@ -249,10 +262,10 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                             
                             autoTable(doc, {
                                 startY: finalY,
-                                head: [[title, 'Utile Totale']],
+                                head: [[title, 'Utile (Lordo)']],
                                 body: bodyData,
                                 theme: 'grid',
-                                headStyles: { fillColor: [22, 163, 74] }, // Green
+                                headStyles: { fillColor: [22, 163, 74] },
                             });
                             finalY = (doc as any).lastAutoTable.finalY;
                         }
@@ -273,7 +286,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     doc.text('Nessuna lezione trovata per i criteri selezionati.', 14, finalY);
                 }
 
-                // 8. Add footers and save
                 addFooters();
                 doc.save(`Resoconto_Lezioni_${startDate}_${endDate}.pdf`);
                 onClose();
@@ -289,13 +301,13 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-40 flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md border border-slate-300 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold mb-6">Esporta Resoconto PDF</h2>
+        <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
+            <div className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold mb-6 text-white border-b border-white/5 pb-4">Esporta PDF</h2>
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="startDate" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Data Inizio</label>
+                            <label htmlFor="startDate" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Da</label>
                             <input
                             type="date"
                             id="startDate"
@@ -303,11 +315,11 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                             onChange={(e) => setStartDate(e.target.value)}
                             required
                             disabled={loading}
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
                             />
                         </div>
                         <div>
-                            <label htmlFor="endDate" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Data Fine</label>
+                            <label htmlFor="endDate" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">A</label>
                             <input
                             type="date"
                             id="endDate"
@@ -315,19 +327,19 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                             onChange={(e) => setEndDate(e.target.value)}
                             required
                             disabled={loading}
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
                             />
                         </div>
                     </div>
                     
                     <div>
-                        <label htmlFor="sportFilter" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Filtra per Sport</label>
+                        <label htmlFor="sportFilter" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Filtra Sport</label>
                         <select
                             id="sportFilter"
                             value={selectedSportId}
                             onChange={(e) => setSelectedSportId(e.target.value)}
                             disabled={loading}
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
                         >
                             <option value="all">Tutti gli Sport</option>
                             {settings.sports.map(sport => (
@@ -337,13 +349,13 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     </div>
 
                     <div>
-                        <label htmlFor="locationFilter" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Filtra per Sede</label>
+                        <label htmlFor="locationFilter" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Filtra Sede</label>
                         <select
                             id="locationFilter"
                             value={selectedLocationId}
                             onChange={(e) => setSelectedLocationId(e.target.value)}
                             disabled={loading || availableLocations.length === 0}
-                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50"
+                            className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100 disabled:opacity-50"
                         >
                             <option value="all">Tutte le Sedi</option>
                             {availableLocations.map(loc => (
@@ -353,39 +365,58 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     </div>
 
                     <div>
-                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Filtra lezioni</label>
-                         <div className={`flex justify-around bg-slate-200 dark:bg-slate-800 rounded-lg p-1 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-                             <button onClick={() => setFilter('all')} className={`w-full px-3 py-1 text-sm font-medium rounded-md transition-colors ${filter === 'all' ? 'bg-white dark:bg-slate-700 shadow text-sky-600' : 'text-slate-600 dark:text-slate-300'}`}>Tutte</button>
-                             <button onClick={() => setFilter('invoiced')} className={`w-full px-3 py-1 text-sm font-medium rounded-md transition-colors ${filter === 'invoiced' ? 'bg-white dark:bg-slate-700 shadow text-sky-600' : 'text-slate-600 dark:text-slate-300'}`}>Fatturate</button>
-                             <button onClick={() => setFilter('not-invoiced')} className={`w-full px-3 py-1 text-sm font-medium rounded-md transition-colors ${filter === 'not-invoiced' ? 'bg-white dark:bg-slate-700 shadow text-sky-600' : 'text-slate-600 dark:text-slate-300'}`}>Non Fatt.</button>
+                         <label className="block text-xs font-bold uppercase text-zinc-400 mb-2 ml-1">Tipo Lezioni</label>
+                         <div className={`flex bg-black/40 rounded-xl p-1 border border-white/5 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+                             {['all', 'invoiced', 'not-invoiced'].map((f) => (
+                                 <button 
+                                    key={f}
+                                    onClick={() => setFilter(f)} 
+                                    className={`flex-1 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${filter === f ? 'bg-zinc-800 shadow text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                                 >
+                                     {f === 'all' ? 'Tutte' : f === 'invoiced' ? 'Fatt.' : 'Non Fatt.'}
+                                 </button>
+                             ))}
                          </div>
+                    </div>
+                    
+                    <div className="bg-black/20 p-3 rounded-xl border border-white/5">
+                         <label className="flex items-center space-x-3 cursor-pointer">
+                            <input 
+                                type="checkbox"
+                                checked={includeNetDetails}
+                                onChange={(e) => setIncludeNetDetails(e.target.checked)}
+                                className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 bg-zinc-800"
+                                disabled={loading}
+                            />
+                            <span className="text-sm font-medium text-zinc-300">Mostra dettagli Netto (Tasse) nel PDF</span>
+                         </label>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-6 mt-4">
+                <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-white/5">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-md hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                        className="px-5 py-2.5 bg-white/5 text-zinc-300 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 text-sm font-semibold"
                     >
-                        Annulla
+                        Chiudi
                     </button>
                     <button
                         type="button"
                         onClick={handleExport}
                         disabled={loading}
-                        className="px-4 py-2 w-[150px] flex items-center justify-center gap-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900 focus:ring-sky-500 transition-colors disabled:bg-sky-400 disabled:cursor-wait"
+                        className="px-5 py-2.5 w-[160px] flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white rounded-xl hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/20 text-sm font-semibold transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-wait"
                     >
                         {loading ? (
                             <>
-                                <SpinnerIcon className="w-5 h-5" />
-                                <span>Esportando...</span>
+                                <SpinnerIcon className="w-4 h-4" />
+                                <span>Attendere...</span>
                             </>
                         ) : (
                             <>
-                                <DocumentArrowDownIcon className="w-5 h-5"/>
-                                <span>Esporta PDF</span>
+                                <DocumentArrowDownIcon className="w-4 h-4"/>
+                                <span>Scarica PDF</span>
                             </>
                         )}
                     </button>

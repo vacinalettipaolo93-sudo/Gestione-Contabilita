@@ -19,6 +19,7 @@ export interface SportSetting {
 
 export interface Settings {
   sports: SportSetting[];
+  taxRate: number;
 }
 
 export interface Lesson {

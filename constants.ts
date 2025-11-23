@@ -17,6 +17,7 @@ const PADEL_CENTER_ID = 'padel-center';
 
 
 export const DEFAULT_SETTINGS: Settings = {
+  taxRate: 0,
   sports: [
     {
       id: TENNIS_ID,
