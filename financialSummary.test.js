@@ -19,6 +19,22 @@ test('include una sola volta il compenso Paitone nei riepiloghi principali', () 
   assert.equal(result.paitoneNetCompensation, 450);
 });
 
+test('rispetta le formule dei riepiloghi superiori con partita IVA al 25%', () => {
+  const result = calculateFinancialSummary({
+    totalIncome: 1500,
+    lessonsInvoicedGross: 800,
+    paitoneCompensation: 200,
+    taxRate: 25,
+    totalExpenses: 50,
+  });
+
+  assert.equal(result.totalInvoicedGross, 1000);
+  assert.equal(result.totalInvoicedNet, 750);
+  assert.equal(result.totalNotInvoicedIncome, 700);
+  assert.equal(result.totalInvoice, 1450);
+  assert.equal(result.netProfit, 1400);
+});
+
 test('con partita IVA a 0% il netto coincide col lordo aggiornato', () => {
   const result = calculateFinancialSummary({
     totalIncome: 1800,
@@ -33,6 +49,23 @@ test('con partita IVA a 0% il netto coincide col lordo aggiornato', () => {
   assert.equal(result.totalInvoice, 2100);
   assert.equal(result.netProfit, 2000);
   assert.equal(result.paitoneNetCompensation, 300);
+});
+
+test('con importi a zero mantiene tutti i riepiloghi a zero', () => {
+  const result = calculateFinancialSummary({
+    totalIncome: 0,
+    lessonsInvoicedGross: 0,
+    paitoneCompensation: 0,
+    taxRate: 25,
+    totalExpenses: 0,
+  });
+
+  assert.equal(result.totalInvoicedGross, 0);
+  assert.equal(result.totalInvoicedNet, 0);
+  assert.equal(result.totalNotInvoicedIncome, 0);
+  assert.equal(result.totalInvoice, 0);
+  assert.equal(result.netProfit, 0);
+  assert.equal(result.paitoneNetCompensation, 0);
 });
 
 test('gestisce input non validi senza duplicazioni o NaN', () => {
