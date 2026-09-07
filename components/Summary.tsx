@@ -17,6 +17,7 @@ interface SummaryProps {
   paitoneDeductibleCosts: number;
   paitoneTaxableRevenue: number;
   paitoneCompensation: number;
+  paitoneNetCompensation: number;
   totalInvoiceWithPaitone: number;
 }
 
@@ -74,6 +75,7 @@ const Summary: React.FC<SummaryProps> = ({
   paitoneDeductibleCosts,
   paitoneTaxableRevenue,
   paitoneCompensation,
+  paitoneNetCompensation,
   totalInvoiceWithPaitone,
 }) => {
   return (
@@ -88,6 +90,7 @@ const Summary: React.FC<SummaryProps> = ({
         <SummaryCard
           title="Fatturato Lordo"
           value={`€ ${totalInvoicedGross.toFixed(2)}`}
+          subValue="Include il compenso centro sportivo calcolato"
           icon={<DocumentTextIcon className="w-6 h-6" />}
           colorClass="bg-indigo-500/10 text-indigo-400"
         />
@@ -147,13 +150,18 @@ const Summary: React.FC<SummaryProps> = ({
             <p className="text-zinc-100 font-semibold">{formatEuro(paitoneTaxableRevenue)}</p>
           </div>
           <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-3">
-            <p className="text-xs text-emerald-300 mb-1">Totale da aggiungere alla fattura</p>
+            <p className="text-xs text-emerald-300 mb-1">Totale lordo calcolato da aggiungere alla fattura</p>
             <p className="text-emerald-200 font-bold">+ {formatEuro(paitoneCompensation)}</p>
           </div>
         </div>
 
         <p className="text-sm text-zinc-300 mt-4">
-          Totale fattura (netto fatturato + utile non fatturato + compenso centro sportivo):{' '}
+          Quota netta centro sportivo dopo partita IVA ({taxRate}%):{' '}
+          <span className="font-bold text-zinc-100">{formatEuro(paitoneNetCompensation)}</span>
+        </p>
+
+        <p className="text-sm text-zinc-300 mt-4">
+          Totale fattura (netto fatturato + utile non fatturato):{' '}
           <span className="font-bold text-zinc-100">{formatEuro(totalInvoiceWithPaitone)}</span>
         </p>
       </div>

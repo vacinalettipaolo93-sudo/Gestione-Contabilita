@@ -32,6 +32,7 @@ import { auth, db, signOut } from './firebase';
 import { getLessonTypeDisplayName, isPaitoneRevenueLesson } from './lessonUtils';
 import { calculatePaitoneCompensation, sanitizePaitoneCompensationSettings } from './paitoneCompensation';
 import { isPaitoneRevenueEntryId, mergeLessonsWithPaitoneRevenue } from './paitoneRevenueFlow';
+import { calculateFinancialSummary } from './financialSummary';
 
 interface PaitoneRevenueEntry {
   id: string;
@@ -258,6 +259,13 @@ const App: React.FC = () => {
     });
   }, [expenses, currentDate]);
 
+  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const canonicalCurrentPaitoneRevenue = paitoneRevenues.find((item) => item.id === currentMonthKey) || null;
+  const legacyCurrentPaitoneRevenue =
+    paitoneRevenues.find((item) => item.monthKey === currentMonthKey && item.id !== currentMonthKey) || null;
+  const currentPaitoneRevenue = canonicalCurrentPaitoneRevenue || legacyCurrentPaitoneRevenue;
+  const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
+
   const totalExpensesMonth = useMemo(() => {
     return monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [monthlyExpenses]);
@@ -274,6 +282,9 @@ const App: React.FC = () => {
         lessonsByLessonType: {},
         lessonsByLocation: {},
         taxRate: 0,
+        netProfit: 0,
+        totalInvoice: 0,
+        paitoneNetCompensation: 0,
       };
 
     const totalLessons = monthlyLessons.length;
@@ -303,33 +314,34 @@ const App: React.FC = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    const totalInvoicedGross = monthlyLessons
+    const lessonsInvoicedGross = monthlyLessons
       .filter((l) => l.invoiced)
       .reduce((sum, lesson) => sum + (lesson.price - lesson.cost), 0);
 
     const taxRate = settings.taxRate || 0;
-    const totalInvoicedNet = totalInvoicedGross * (1 - taxRate / 100);
-
-    const totalNotInvoicedIncome = totalIncome - totalInvoicedGross;
+    const financialSummary = calculateFinancialSummary({
+      totalIncome,
+      lessonsInvoicedGross,
+      paitoneCompensation: paitoneSummary.compensation,
+      taxRate,
+      totalExpenses: totalExpensesMonth,
+    });
 
     return {
       totalLessons,
       totalIncome,
       lessonsBySport,
-      totalInvoicedGross,
-      totalInvoicedNet,
-      totalNotInvoicedIncome,
+      totalInvoicedGross: financialSummary.totalInvoicedGross,
+      totalInvoicedNet: financialSummary.totalInvoicedNet,
+      totalNotInvoicedIncome: financialSummary.totalNotInvoicedIncome,
       lessonsByLessonType,
       lessonsByLocation,
       taxRate,
+      netProfit: financialSummary.netProfit,
+      totalInvoice: financialSummary.totalInvoice,
+      paitoneNetCompensation: financialSummary.paitoneNetCompensation,
     };
-  }, [monthlyLessons, settings]);
-
-  // ✅ NETTO RICHIESTO:
-  // (Fatturato Netto + Utile non fatturato) - Spese
-  const netProfitMonth = useMemo(() => {
-    return summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome - totalExpensesMonth;
-  }, [summaryData.totalInvoicedNet, summaryData.totalNotInvoicedIncome, totalExpensesMonth]);
+  }, [monthlyLessons, paitoneSummary.compensation, settings, totalExpensesMonth]);
 
   const handleAddLesson = (newLessonData: Omit<Lesson, 'id'>) => {
     if (!user) return;
@@ -490,14 +502,6 @@ const App: React.FC = () => {
     setEditingLesson(null);
     setIsFormOpen(true);
   };
-
-  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-  const canonicalCurrentPaitoneRevenue = paitoneRevenues.find((item) => item.id === currentMonthKey) || null;
-  const legacyCurrentPaitoneRevenue =
-    paitoneRevenues.find((item) => item.monthKey === currentMonthKey && item.id !== currentMonthKey) || null;
-  const currentPaitoneRevenue = canonicalCurrentPaitoneRevenue || legacyCurrentPaitoneRevenue;
-  const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
-  const totalInvoiceWithPaitone = summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome + paitoneSummary.compensation;
   const monthlyDisplayLessons = useMemo(() => {
     return mergeLessonsWithPaitoneRevenue(monthlyLessons, currentMonthKey, currentPaitoneRevenue, paitoneSummary) as Lesson[];
   }, [monthlyLessons, currentMonthKey, currentPaitoneRevenue, paitoneSummary]);
@@ -571,12 +575,13 @@ const App: React.FC = () => {
           totalNotInvoicedIncome={summaryData.totalNotInvoicedIncome}
           taxRate={summaryData.taxRate}
           totalExpenses={totalExpensesMonth}
-          netProfit={netProfitMonth}
+          netProfit={summaryData.netProfit}
           paitoneRevenue={currentPaitoneRevenue?.revenue ?? null}
           paitoneDeductibleCosts={paitoneSummary.deductibleCosts}
           paitoneTaxableRevenue={paitoneSummary.taxableRevenue}
           paitoneCompensation={paitoneSummary.compensation}
-          totalInvoiceWithPaitone={totalInvoiceWithPaitone}
+          paitoneNetCompensation={summaryData.paitoneNetCompensation}
+          totalInvoiceWithPaitone={summaryData.totalInvoice}
         />
 
         <LessonList
