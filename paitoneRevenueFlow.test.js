@@ -45,6 +45,22 @@ test('mergeLessonsWithPaitoneRevenue aggiunge una sola voce fatturato al resto d
   assert.equal(result[2].price, 345.6);
 });
 
+test('mergeLessonsWithPaitoneRevenue rimpiazza eventuale voce fatturato già presente nel mese', () => {
+  const monthKey = '2026-09';
+  const existingPaitoneId = getPaitoneRevenueEntryId(monthKey);
+  const lessons = [{ id: 'l1' }, { id: existingPaitoneId, price: 1 }];
+  const result = mergeLessonsWithPaitoneRevenue(
+    lessons,
+    monthKey,
+    { id: monthKey, monthKey, revenue: 9000 },
+    { deductibleCosts: 4120, taxableRevenue: 4880, compensation: 465.6 }
+  );
+
+  assert.equal(result.length, 2);
+  assert.equal(result.filter((item) => item.id === existingPaitoneId).length, 1);
+  assert.equal(result[1].price, 465.6);
+});
+
 test('isPaitoneRevenueEntryId riconosce solo la voce del mese corrente', () => {
   assert.equal(isPaitoneRevenueEntryId('paitone-revenue-2026-09', '2026-09'), true);
   assert.equal(isPaitoneRevenueEntryId('paitone-revenue-2026-08', '2026-09'), false);

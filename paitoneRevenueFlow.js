@@ -29,5 +29,7 @@ export const buildPaitoneRevenueDisplayLesson = (monthKey, revenueEntry, summary
 export const mergeLessonsWithPaitoneRevenue = (lessons, monthKey, revenueEntry, summary) => {
   const paitoneLesson = buildPaitoneRevenueDisplayLesson(monthKey, revenueEntry, summary);
   if (!paitoneLesson) return lessons;
-  return [...lessons, paitoneLesson];
+  const paitoneEntryId = getPaitoneRevenueEntryId(monthKey);
+  const lessonsWithoutCurrentPaitone = lessons.filter((lesson) => lesson?.id !== paitoneEntryId);
+  return [...lessonsWithoutCurrentPaitone, paitoneLesson];
 };

@@ -40,6 +40,7 @@ const LessonForm: React.FC<LessonFormProps> = ({
   const [isSavingPaitoneRevenue, setIsSavingPaitoneRevenue] = useState(false);
 
   const isEditing = !!lessonToEdit;
+  const isEditingPaitoneRevenueEntry = !!lessonToEdit && lessonToEdit.lessonTypeId === PAITONE_REVENUE_LESSON_TYPE_ID;
   const isCustom = lessonTypeId === CUSTOM_LESSON_TYPE_ID;
   const isPaitoneRevenueType = lessonTypeId === PAITONE_REVENUE_LESSON_TYPE_ID;
 
@@ -289,14 +290,16 @@ const LessonForm: React.FC<LessonFormProps> = ({
               id="lessonType"
               value={lessonTypeId}
               onChange={(e) => setLessonTypeId(e.target.value)}
+              disabled={isEditingPaitoneRevenueEntry}
               className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
             >
-              {availableLessonTypes.map((lt) => (
-                <option key={lt.id} value={lt.id}>
-                  {lt.name}
-                </option>
-              ))}
-              <option value={CUSTOM_LESSON_TYPE_ID}>➕ Personalizzato (incasso al volo)</option>
+              {!isEditingPaitoneRevenueEntry &&
+                availableLessonTypes.map((lt) => (
+                  <option key={lt.id} value={lt.id}>
+                    {lt.name}
+                  </option>
+                ))}
+              {!isEditingPaitoneRevenueEntry && <option value={CUSTOM_LESSON_TYPE_ID}>➕ Personalizzato (incasso al volo)</option>}
               <option value={PAITONE_REVENUE_LESSON_TYPE_ID}>🏟️ {PAITONE_REVENUE_LESSON_TYPE_NAME}</option>
             </select>
           </div>
