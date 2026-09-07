@@ -139,9 +139,10 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     const taxRate = settings.taxRate || 0;
                     const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
-                    const totalWithPaitoneCompensation = (includeNetDetails ? totalInvoicedNet : totalInvoicedGross) + paitoneSummary.compensation;
-
-                    const totalOverall = totalWithPaitoneCompensation + totalNotInvoiced;
+                    const baseTotalOverall = includeNetDetails
+                        ? (totalInvoicedNet + totalNotInvoiced)
+                        : (totalInvoicedGross + totalNotInvoiced);
+                    const totalOverall = baseTotalOverall + paitoneSummary.compensation;
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
