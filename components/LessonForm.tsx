@@ -51,7 +51,8 @@ const LessonForm: React.FC<LessonFormProps> = ({
     if (!isOpen) return;
 
     if (isEditing && lessonToEdit) {
-      setSportId(lessonToEdit.sportId || settings.sports[0]?.id || '');
+      const isEditingPaitoneRevenue = lessonToEdit.lessonTypeId === PAITONE_REVENUE_LESSON_TYPE_ID;
+      setSportId(isEditingPaitoneRevenue ? '' : lessonToEdit.sportId || settings.sports[0]?.id || '');
       setDate(lessonToEdit.date);
       setInvoiced(lessonToEdit.invoiced || false);
 
@@ -70,7 +71,7 @@ const LessonForm: React.FC<LessonFormProps> = ({
 
       setTimeout(() => {
         setLessonTypeId(lessonToEdit.lessonTypeId);
-        setLocationId(lessonToEdit.locationId || settings.sports[0]?.locations?.[0]?.id || '');
+        setLocationId(isEditingPaitoneRevenue ? '' : lessonToEdit.locationId || settings.sports[0]?.locations?.[0]?.id || '');
       }, 0);
     } else {
       const firstSport = settings.sports[0];
@@ -86,6 +87,14 @@ const LessonForm: React.FC<LessonFormProps> = ({
       setPaitoneRevenueError('');
     }
   }, [lessonToEdit, isOpen, settings, isEditing, currentPaitoneRevenue]);
+
+  useEffect(() => {
+    if (isPaitoneRevenueType || sportId || settings.sports.length === 0) return;
+    const firstSport = settings.sports[0];
+    setSportId(firstSport.id);
+    setLocationId(firstSport.locations?.[0]?.id || '');
+    setLessonTypeId(firstSport.lessonTypes?.[0]?.id || '');
+  }, [isPaitoneRevenueType, sportId, settings]);
 
   useEffect(() => {
     // Quando cambio sport, reset tipo/sede SOLO se non sto editando la stessa sport
@@ -388,7 +397,7 @@ const LessonForm: React.FC<LessonFormProps> = ({
               disabled={isSavingPaitoneRevenue}
               className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white rounded-xl hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/20 text-sm font-semibold transition-all"
             >
-              {isEditing ? 'Salva' : 'Aggiungi'}
+              {isPaitoneRevenueType ? 'Salva fatturato' : isEditing ? 'Salva' : 'Aggiungi'}
             </button>
           </div>
         </form>
