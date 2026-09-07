@@ -139,11 +139,10 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     const taxRate = settings.taxRate || 0;
                     const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
-                    const appliedPaitoneCompensation = includeNetDetails ? paitoneSummary.compensation : 0;
-                    const baseTotalOverall = includeNetDetails
-                        ? (totalInvoicedNet + totalNotInvoiced)
-                        : (totalInvoicedGross + totalNotInvoiced);
-                    const totalOverall = baseTotalOverall + appliedPaitoneCompensation;
+                    const appliedPaitoneCompensation = paitoneSummary.compensation;
+                    const totalOverall = includeNetDetails
+                        ? (totalInvoicedNet + totalNotInvoiced + appliedPaitoneCompensation)
+                        : (totalInvoicedGross + totalNotInvoiced + appliedPaitoneCompensation);
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
@@ -192,8 +191,8 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         finalY += 7;
                     } else {
                         doc.setTextColor(150);
-                        doc.text(`Compenso Paitone calcolato (non incluso nel totale lordo):`, 14, finalY);
-                        doc.text(`€ ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.text(`Compenso aggiuntivo Paitone incluso nel totale:`, 14, finalY);
+                        doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setTextColor(100);
                         finalY += 7;
                     }
@@ -207,7 +206,9 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0);
-                    const totalLabel = includeNetDetails ? 'Totale Netto Complessivo:' : 'Totale Complessivo (Lordo):';
+                    const totalLabel = includeNetDetails
+                        ? 'Totale Netto Complessivo:'
+                        : 'Totale Complessivo (Lordo + Compenso Paitone):';
                     doc.text(totalLabel, 14, finalY);
                     doc.text(`€ ${totalOverall.toFixed(2)}`, 200, finalY, { align: 'right' });
                      doc.setTextColor(100);
