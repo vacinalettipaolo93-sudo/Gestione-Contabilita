@@ -5,6 +5,7 @@ import { Lesson, Settings } from '../types';
 import { getLessonTypeDisplayName } from '../lessonUtils';
 import { DocumentArrowDownIcon, SpinnerIcon } from './icons';
 import { calculatePaitoneCompensation } from '../paitoneCompensation';
+import { calculateFinancialSummary } from '../financialSummary';
 
 interface ExportFormProps {
   isOpen: boolean;
@@ -132,14 +133,19 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 if (filteredLessons.length > 0) {
                     finalY = checkPageBreak(finalY, 20) + 15;
                     
+                    const totalIncome = filteredLessons.reduce((sum, l) => sum + (l.price - l.cost), 0);
                     const totalInvoicedGross = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
-                    const totalNotInvoiced = filteredLessons.filter(l => !l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
                     
                     const taxRate = settings.taxRate || 0;
-                    const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
-                    const appliedPaitoneCompensation = paitoneSummary.compensation;
-                    const totalOverall = totalInvoicedNet + totalNotInvoiced + appliedPaitoneCompensation;
+                    const financialSummary = calculateFinancialSummary({
+                        totalIncome,
+                        lessonsInvoicedGross: totalInvoicedGross,
+                        paitoneCompensation: paitoneSummary.compensation,
+                        taxRate,
+                        totalIncomeIncludesPaitoneCompensation: false,
+                    });
+                    const totalOverall = financialSummary.totalInvoice;
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
@@ -148,20 +154,20 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(11);
 
-                    doc.text(`Fatturato Lordo (Fatturato):`, 14, finalY);
-                    doc.text(`€ ${totalInvoicedGross.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.text(`Fatturato Lordo (incluso compenso Paitone calcolato):`, 14, finalY);
+                    doc.text(`€ ${financialSummary.totalInvoicedGross.toFixed(2)}`, 200, finalY, { align: 'right' });
                     finalY += 7;
                     
                     if (includeNetDetails) {
                         doc.setTextColor(150);
                         doc.text(`Tasse / Ritenuta applicata (${taxRate}%):`, 14, finalY);
-                        doc.text(`- € ${(totalInvoicedGross * (taxRate / 100)).toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.text(`- € ${(financialSummary.totalInvoicedGross - financialSummary.totalInvoicedNet).toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setTextColor(100);
                         finalY += 7;
                         
                         doc.setFont('helvetica', 'bold');
                         doc.text(`Fatturato Netto:`, 14, finalY);
-                        doc.text(`€ ${totalInvoicedNet.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.text(`€ ${financialSummary.totalInvoicedNet.toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setFont('helvetica', 'normal');
                         finalY += 10;
                     } else {
@@ -182,20 +188,24 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         doc.text(`€ ${paitoneSummary.taxableRevenue.toFixed(2)}`, 200, finalY, { align: 'right' });
                         finalY += 7;
 
-                        doc.text(`Compenso aggiuntivo Paitone:`, 14, finalY);
-                        doc.text(`+ € ${appliedPaitoneCompensation.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.text(`Compenso lordo Paitone da aggiungere al fatturato:`, 14, finalY);
+                        doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        finalY += 7;
+
+                        doc.text(`Compenso netto Paitone dopo partita IVA:`, 14, finalY);
+                        doc.text(`€ ${financialSummary.paitoneNetCompensation.toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setTextColor(100);
                         finalY += 7;
                     } else {
                         doc.setTextColor(150);
-                        doc.text(`Compenso aggiuntivo Paitone incluso nel totale:`, 14, finalY);
+                        doc.text(`Compenso lordo Paitone incluso nel fatturato lordo:`, 14, finalY);
                         doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setTextColor(100);
                         finalY += 7;
                     }
                     
                     doc.text(`Utile Non Fatturato:`, 14, finalY);
-                    doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.text(`€ ${financialSummary.totalNotInvoicedIncome.toFixed(2)}`, 200, finalY, { align: 'right' });
                     finalY += 2;
                     
                     doc.line(14, finalY, 200, finalY); 
