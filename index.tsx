@@ -9,6 +9,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   serverTimestamp,
   query,
   orderBy,
@@ -484,7 +485,10 @@ const App: React.FC = () => {
   };
 
   const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-  const currentPaitoneRevenue = paitoneRevenues.find((item) => item.monthKey === currentMonthKey) || null;
+  const canonicalCurrentPaitoneRevenue = paitoneRevenues.find((item) => item.id === currentMonthKey) || null;
+  const legacyCurrentPaitoneRevenue =
+    paitoneRevenues.find((item) => item.monthKey === currentMonthKey && item.id !== currentMonthKey) || null;
+  const currentPaitoneRevenue = canonicalCurrentPaitoneRevenue || legacyCurrentPaitoneRevenue;
   const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
   const totalInvoiceWithPaitone = summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome + paitoneSummary.compensation;
 
@@ -492,21 +496,33 @@ const App: React.FC = () => {
     if (!user) return;
     const safeRevenue = Number.isFinite(revenue) ? Math.max(0, revenue) : 0;
     const now = serverTimestamp();
+    const canonicalRef = doc(db, 'users', user.uid, 'paitone_revenues', currentMonthKey);
+    const batch = writeBatch(db);
 
-    if (currentPaitoneRevenue) {
-      const ref = doc(db, 'users', user.uid, 'paitone_revenues', currentPaitoneRevenue.id);
-      await updateDoc(ref, { revenue: safeRevenue, updatedAt: now });
-      return;
+    if (canonicalCurrentPaitoneRevenue) {
+      batch.update(canonicalRef, { revenue: safeRevenue, updatedAt: now });
+    } else {
+      batch.set(canonicalRef, { monthKey: currentMonthKey, revenue: safeRevenue, createdAt: now, updatedAt: now });
     }
 
-    const colRef = collection(db, 'users', user.uid, 'paitone_revenues');
-    await addDoc(colRef, { monthKey: currentMonthKey, revenue: safeRevenue, createdAt: now, updatedAt: now });
+    if (legacyCurrentPaitoneRevenue) {
+      const legacyRef = doc(db, 'users', user.uid, 'paitone_revenues', legacyCurrentPaitoneRevenue.id);
+      batch.delete(legacyRef);
+    }
+
+    await batch.commit();
   };
 
   const handleDeletePaitoneRevenue = async () => {
     if (!user || !currentPaitoneRevenue) return;
-    const ref = doc(db, 'users', user.uid, 'paitone_revenues', currentPaitoneRevenue.id);
-    await deleteDoc(ref);
+    const batch = writeBatch(db);
+    paitoneRevenues
+      .filter((entry) => entry.monthKey === currentMonthKey || entry.id === currentMonthKey)
+      .forEach((entry) => {
+        const ref = doc(db, 'users', user.uid, 'paitone_revenues', entry.id);
+        batch.delete(ref);
+      });
+    await batch.commit();
   };
 
   if (loading) {

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon, PlusIcon, TrashIcon } from './icons';
+import { parsePaitoneRevenueInput } from '../paitoneRevenueValidation';
 
 interface SummaryProps {
   totalLessons: number;
@@ -61,24 +62,6 @@ const BreakdownCard: React.FC<{ title: string; data: Record<string, number> }> =
 
 const formatEuro = (amount: number) => `€ ${amount.toFixed(2)}`;
 
-const parseItalianAmount = (rawValue: string) => {
-  const normalized = rawValue.trim().replace(',', '.');
-  if (!normalized) {
-    return { value: null, error: 'Inserisci un importo di fatturato.' };
-  }
-
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) {
-    return { value: null, error: 'Inserisci un importo valido.' };
-  }
-
-  if (parsed < 0) {
-    return { value: null, error: 'Il fatturato non può essere negativo.' };
-  }
-
-  return { value: parsed, error: '' };
-};
-
 const Summary: React.FC<SummaryProps> = ({
   totalLessons,
   lessonsBySport,
@@ -102,15 +85,28 @@ const Summary: React.FC<SummaryProps> = ({
   const [revenueInput, setRevenueInput] = useState('');
   const [revenueError, setRevenueError] = useState('');
   const [isSavingRevenue, setIsSavingRevenue] = useState(false);
+  const revenueInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isRevenueFormOpen) return;
-    setRevenueInput(paitoneRevenue !== null ? String(paitoneRevenue) : '');
+    setRevenueInput((currentValue) => (currentValue ? currentValue : paitoneRevenue !== null ? String(paitoneRevenue) : ''));
     setRevenueError('');
-  }, [isRevenueFormOpen, paitoneRevenue]);
+    revenueInputRef.current?.focus();
+  }, [isRevenueFormOpen]);
+
+  useEffect(() => {
+    if (!isRevenueFormOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSavingRevenue) {
+        setIsRevenueFormOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isRevenueFormOpen, isSavingRevenue]);
 
   const handleSaveRevenue = async () => {
-    const parsed = parseItalianAmount(revenueInput);
+    const parsed = parsePaitoneRevenueInput(revenueInput);
     if (parsed.error || parsed.value === null) {
       setRevenueError(parsed.error || 'Inserisci un importo valido.');
       return;
@@ -210,9 +206,15 @@ const Summary: React.FC<SummaryProps> = ({
               </button>
             )}
             <button
-              onClick={() => setIsRevenueFormOpen(true)}
+              onClick={() => {
+                setRevenueInput(paitoneRevenue !== null ? String(paitoneRevenue) : '');
+                setRevenueError('');
+                setIsRevenueFormOpen(true);
+              }}
               className="p-2 rounded-lg text-zinc-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
               aria-label="Aggiungi o modifica fatturato centro sportivo"
+              aria-haspopup="dialog"
+              aria-expanded={isRevenueFormOpen}
               title="Aggiungi / Modifica"
             >
               <PlusIcon className="w-4 h-4" />
@@ -252,11 +254,19 @@ const Summary: React.FC<SummaryProps> = ({
             if (!isSavingRevenue) setIsRevenueFormOpen(false);
           }}
         >
-          <div className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-2 text-white">
+          <div
+            className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paitone-revenue-dialog-title"
+            aria-describedby="paitone-revenue-dialog-description"
+          >
+            <h2 id="paitone-revenue-dialog-title" className="text-2xl font-bold mb-2 text-white">
               {paitoneRevenue !== null ? 'Modifica fatturato centro sportivo' : 'Inserisci fatturato centro sportivo'}
             </h2>
-            <p className="text-sm text-zinc-400 mb-4">
+            <p id="paitone-revenue-dialog-description" className="text-sm text-zinc-400 mb-4">
               Inserisci l&apos;importo lordo: al salvataggio verranno applicate automaticamente detrazioni e scaglioni dalle impostazioni.
             </p>
             <label htmlFor="paitoneRevenueMain" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
@@ -265,13 +275,20 @@ const Summary: React.FC<SummaryProps> = ({
             <input
               type="text"
               id="paitoneRevenueMain"
+              ref={revenueInputRef}
               value={revenueInput}
               onChange={(e) => setRevenueInput(e.target.value)}
               placeholder="0,00"
               disabled={isSavingRevenue}
+              aria-invalid={Boolean(revenueError)}
+              aria-describedby={revenueError ? 'paitoneRevenueMainError' : undefined}
               className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
             />
-            {revenueError && <p className="text-sm text-red-400 mt-2">{revenueError}</p>}
+            {revenueError && (
+              <p id="paitoneRevenueMainError" className="text-sm text-red-400 mt-2">
+                {revenueError}
+              </p>
+            )}
             <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-white/5">
               <button
                 type="button"
