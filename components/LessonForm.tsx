@@ -286,14 +286,14 @@ const LessonForm: React.FC<LessonFormProps> = ({
               Tipo Lezione
             </label>
             {isEditingPaitoneRevenueEntry ? (
-              <div
+              <input
+                id="lessonType"
+                type="text"
+                value={`🏟️ ${PAITONE_REVENUE_LESSON_TYPE_NAME}`}
+                readOnly
                 className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-zinc-100"
-                role="textbox"
-                aria-readonly="true"
                 aria-label="Tipo voce in modifica"
-              >
-                🏟️ {PAITONE_REVENUE_LESSON_TYPE_NAME}
-              </div>
+              />
             ) : (
               <select
                 id="lessonType"
