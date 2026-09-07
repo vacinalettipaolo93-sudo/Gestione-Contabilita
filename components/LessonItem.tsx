@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lesson, Settings } from '../types';
-import { getLessonTypeDisplayName } from '../lessonUtils';
+import { getLessonTypeDisplayName, isPaitoneRevenueLesson, PAITONE_REVENUE_LESSON_TYPE_NAME } from '../lessonUtils';
 import { TrashIcon, PencilIcon } from './icons';
 
 interface LessonItemProps {
@@ -13,19 +13,24 @@ interface LessonItemProps {
 
 const LessonItem: React.FC<LessonItemProps> = ({ lesson, settings, onDelete, onToggleInvoiced, onEdit }) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const isPaitoneRevenue = isPaitoneRevenueLesson(lesson);
 
   const date = new Date(lesson.date + 'T00:00:00');
 
   const sport = settings.sports.find(s => s.id === lesson.sportId);
   const location = sport?.locations.find(l => l.id === lesson.locationId);
 
-  const sportName = sport?.name || 'N/D';
-  const lessonTypeName = getLessonTypeDisplayName(lesson, sport, 'Personalizzato');
+  const sportName = isPaitoneRevenue ? 'Centro sportivo' : sport?.name || 'N/D';
+  const lessonTypeName = isPaitoneRevenue
+    ? PAITONE_REVENUE_LESSON_TYPE_NAME
+    : getLessonTypeDisplayName(lesson, sport, 'Personalizzato');
   const locationName = location?.name || 'N/D';
 
-  const sportColorClasses = sport?.id === 'tennis' 
-    ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
-    : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+  const sportColorClasses = isPaitoneRevenue
+    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    : sport?.id === 'tennis'
+      ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+      : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
 
   const locationStyle = 'bg-zinc-800 text-zinc-400 border-zinc-700';
   const invoicedStyle = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
@@ -46,7 +51,9 @@ const LessonItem: React.FC<LessonItemProps> = ({ lesson, settings, onDelete, onT
                  <p className="font-bold text-lg text-zinc-100">{lessonTypeName}</p>
                  <div className="flex flex-wrap gap-2 items-center mt-2">
                     <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${sportColorClasses}`}>{sportName}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${locationStyle}`}>{locationName}</span>
+                    {!isPaitoneRevenue && (
+                      <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${locationStyle}`}>{locationName}</span>
+                    )}
                     {lesson.invoiced && <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${invoicedStyle}`}>Fatturata</span>}
                 </div>
             </div>
@@ -56,11 +63,20 @@ const LessonItem: React.FC<LessonItemProps> = ({ lesson, settings, onDelete, onT
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full sm:w-auto mt-2 sm:mt-0 pl-2 sm:pl-0 border-t sm:border-t-0 border-white/5 pt-4 sm:pt-0">
         <div className="text-left sm:text-right min-w-[100px]">
             <p className="text-2xl font-bold text-emerald-400 tracking-tight">
-                € {(lesson.price - lesson.cost).toFixed(2)}
+                € {(isPaitoneRevenue ? lesson.price : lesson.price - lesson.cost).toFixed(2)}
             </p>
             <div className="flex items-center gap-2 sm:justify-end text-xs text-zinc-500 mt-1 font-mono">
-                <span className="bg-emerald-500/10 px-1 rounded text-emerald-400">+{lesson.price}</span>
-                <span className="bg-red-500/10 px-1 rounded text-red-400">-{lesson.cost}</span>
+                {isPaitoneRevenue ? (
+                  <>
+                    <span className="bg-emerald-500/10 px-1 rounded text-emerald-400">Lordo {lesson.paitoneRevenue ?? 0}</span>
+                    <span className="bg-red-500/10 px-1 rounded text-red-400">Detrazioni {lesson.paitoneDeductibleCosts ?? 0}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="bg-emerald-500/10 px-1 rounded text-emerald-400">+{lesson.price}</span>
+                    <span className="bg-red-500/10 px-1 rounded text-red-400">-{lesson.cost}</span>
+                  </>
+                )}
             </div>
         </div>
         
@@ -82,20 +98,24 @@ const LessonItem: React.FC<LessonItemProps> = ({ lesson, settings, onDelete, onT
             </div>
           ) : (
             <>
-              <div className="flex items-center mr-2">
-                 <label className="flex items-center cursor-pointer group/toggle">
-                  <input
-                    type="checkbox"
-                    checked={lesson.invoiced || false}
-                    onChange={() => onToggleInvoiced(lesson.id)}
-                    className="sr-only peer"
-                  />
-                  <div className="relative w-10 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all border-gray-600 peer-checked:bg-indigo-500 transition-colors"></div>
-                  <span className="ms-2 text-xs font-medium text-zinc-400 group-hover/toggle:text-zinc-200 transition-colors">Fatt.</span>
-                </label>
-              </div>
-              
-              <div className="h-8 w-px bg-white/10 mx-1"></div>
+              {!isPaitoneRevenue && (
+                <>
+                  <div className="flex items-center mr-2">
+                     <label className="flex items-center cursor-pointer group/toggle">
+                      <input
+                        type="checkbox"
+                        checked={lesson.invoiced || false}
+                        onChange={() => onToggleInvoiced(lesson.id)}
+                        className="sr-only peer"
+                      />
+                      <div className="relative w-10 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all border-gray-600 peer-checked:bg-indigo-500 transition-colors"></div>
+                      <span className="ms-2 text-xs font-medium text-zinc-400 group-hover/toggle:text-zinc-200 transition-colors">Fatt.</span>
+                    </label>
+                  </div>
+                  
+                  <div className="h-8 w-px bg-white/10 mx-1"></div>
+                </>
+              )}
 
               <button
                   onClick={() => onEdit(lesson)}

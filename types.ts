@@ -50,4 +50,9 @@ export interface Lesson {
   /** Campi per le lezioni “personalizzate (incasso al volo)” */
   customLessonTypeName?: string; // es. "Torneo"
   customPrice?: number; // incasso manuale
+
+  /** Metadati opzionali per voce fatturato centro sportivo */
+  paitoneRevenue?: number;
+  paitoneDeductibleCosts?: number;
+  paitoneTaxableRevenue?: number;
 }
