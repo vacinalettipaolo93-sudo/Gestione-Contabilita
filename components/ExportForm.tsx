@@ -139,10 +139,11 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     const taxRate = settings.taxRate || 0;
                     const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
+                    const appliedPaitoneCompensation = includeNetDetails ? paitoneSummary.compensation : 0;
                     const baseTotalOverall = includeNetDetails
                         ? (totalInvoicedNet + totalNotInvoiced)
                         : (totalInvoicedGross + totalNotInvoiced);
-                    const totalOverall = baseTotalOverall + paitoneSummary.compensation;
+                    const totalOverall = baseTotalOverall + appliedPaitoneCompensation;
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
@@ -171,23 +172,25 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         finalY += 3;
                     }
 
-                    doc.setTextColor(150);
-                    doc.text(`Fatturato Paitone inserito:`, 14, finalY);
-                    doc.text(`€ ${paitoneSummary.revenue.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 7;
+                    if (includeNetDetails) {
+                        doc.setTextColor(150);
+                        doc.text(`Fatturato Paitone inserito:`, 14, finalY);
+                        doc.text(`€ ${paitoneSummary.revenue.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        finalY += 7;
 
-                    doc.text(`Costi sottratti (Affitto + Collaboratore):`, 14, finalY);
-                    doc.text(`- € ${paitoneSummary.deductibleCosts.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 7;
+                        doc.text(`Costi sottratti (Affitto + Collaboratore):`, 14, finalY);
+                        doc.text(`- € ${paitoneSummary.deductibleCosts.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        finalY += 7;
 
-                    doc.text(`Base netta Paitone per scaglioni:`, 14, finalY);
-                    doc.text(`€ ${paitoneSummary.taxableRevenue.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 7;
+                        doc.text(`Base netta Paitone per scaglioni:`, 14, finalY);
+                        doc.text(`€ ${paitoneSummary.taxableRevenue.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        finalY += 7;
 
-                    doc.text(`Compenso aggiuntivo Paitone:`, 14, finalY);
-                    doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    doc.setTextColor(100);
-                    finalY += 7;
+                        doc.text(`Compenso aggiuntivo Paitone:`, 14, finalY);
+                        doc.text(`+ € ${appliedPaitoneCompensation.toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.setTextColor(100);
+                        finalY += 7;
+                    }
                     
                     doc.text(`Utile Non Fatturato:`, 14, finalY);
                     doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });

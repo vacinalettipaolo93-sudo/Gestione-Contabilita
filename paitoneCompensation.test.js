@@ -61,3 +61,15 @@ test('gestisce input vuoti/non validi senza NaN', () => {
   assert.equal(Number.isNaN(result.compensation), false);
   assert.equal(result.compensation, 0);
 });
+
+test('normalizza la seconda soglia se inferiore alla prima', () => {
+  const result = calculatePaitoneCompensation(12120, {
+    ...baseConfig,
+    firstBracketLimit: 5000,
+    secondBracketLimit: 3000,
+  });
+  assert.equal(result.config.firstBracketLimit, 5000);
+  assert.equal(result.config.secondBracketLimit, 5000);
+  assert.equal(result.taxableRevenue, 8000);
+  assert.equal(result.compensation, 850);
+});
