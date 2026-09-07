@@ -29,8 +29,9 @@ import Login from './components/Login';
 import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
 import { auth, db, signOut } from './firebase';
-import { getLessonTypeDisplayName } from './lessonUtils';
+import { getLessonTypeDisplayName, isPaitoneRevenueLesson } from './lessonUtils';
 import { calculatePaitoneCompensation, sanitizePaitoneCompensationSettings } from './paitoneCompensation';
+import { isPaitoneRevenueEntryId, mergeLessonsWithPaitoneRevenue } from './paitoneRevenueFlow';
 
 interface PaitoneRevenueEntry {
   id: string;
@@ -338,6 +339,7 @@ const App: React.FC = () => {
 
   const handleUpdateLesson = (updatedLessonData: Lesson) => {
     if (!user) return;
+    if (isPaitoneRevenueLesson(updatedLessonData)) return;
     const { id, ...data } = updatedLessonData;
     const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
     updateDoc(lessonDocRef, data as any);
@@ -345,6 +347,10 @@ const App: React.FC = () => {
 
   const handleDeleteLesson = (id: string) => {
     if (!user) return;
+    if (isPaitoneRevenueEntryId(id, currentMonthKey)) {
+      handleDeletePaitoneRevenue();
+      return;
+    }
     const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
     deleteDoc(lessonDocRef);
   };
@@ -352,6 +358,7 @@ const App: React.FC = () => {
   const handleToggleInvoiced = (id: string) => {
     if (!user) return;
     const lesson = lessons.find((l) => l.id === id);
+    if (!lesson || isPaitoneRevenueLesson(lesson)) return;
     if (lesson) {
       const lessonDocRef = doc(db, 'users', user.uid, 'lessons', id);
       updateDoc(lessonDocRef, { invoiced: !lesson.invoiced });
@@ -491,6 +498,9 @@ const App: React.FC = () => {
   const currentPaitoneRevenue = canonicalCurrentPaitoneRevenue || legacyCurrentPaitoneRevenue;
   const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
   const totalInvoiceWithPaitone = summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome + paitoneSummary.compensation;
+  const monthlyDisplayLessons = useMemo(() => {
+    return mergeLessonsWithPaitoneRevenue(monthlyLessons, currentMonthKey, currentPaitoneRevenue, paitoneSummary) as Lesson[];
+  }, [monthlyLessons, currentMonthKey, currentPaitoneRevenue, paitoneSummary]);
 
   const handleSavePaitoneRevenue = async (revenue: number) => {
     if (!user) return;
@@ -567,12 +577,10 @@ const App: React.FC = () => {
           paitoneTaxableRevenue={paitoneSummary.taxableRevenue}
           paitoneCompensation={paitoneSummary.compensation}
           totalInvoiceWithPaitone={totalInvoiceWithPaitone}
-          onSavePaitoneRevenue={handleSavePaitoneRevenue}
-          onDeletePaitoneRevenue={handleDeletePaitoneRevenue}
         />
 
         <LessonList
-          lessons={monthlyLessons}
+          lessons={monthlyDisplayLessons}
           settings={settings}
           onDelete={handleDeleteLesson}
           onToggleInvoiced={handleToggleInvoiced}
@@ -595,7 +603,9 @@ const App: React.FC = () => {
         onClose={() => setIsFormOpen(false)}
         onAddLesson={handleAddLesson}
         onUpdateLesson={handleUpdateLesson}
+        onSavePaitoneRevenue={handleSavePaitoneRevenue}
         lessonToEdit={editingLesson}
+        currentPaitoneRevenue={currentPaitoneRevenue?.revenue ?? null}
         settings={settings}
       />
 

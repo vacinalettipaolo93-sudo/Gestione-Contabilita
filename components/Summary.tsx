@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon, PlusIcon, TrashIcon } from './icons';
-import { parsePaitoneRevenueInput } from '../paitoneRevenueValidation';
+import React from 'react';
+import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon } from './icons';
 
 interface SummaryProps {
   totalLessons: number;
@@ -19,8 +18,6 @@ interface SummaryProps {
   paitoneTaxableRevenue: number;
   paitoneCompensation: number;
   totalInvoiceWithPaitone: number;
-  onSavePaitoneRevenue: (revenue: number) => Promise<void>;
-  onDeletePaitoneRevenue: () => Promise<void>;
 }
 
 const SummaryCard: React.FC<{ title: string; value: string; subValue?: string; icon: React.ReactNode; colorClass: string }> = ({ title, value, subValue, icon, colorClass }) => (
@@ -78,66 +75,7 @@ const Summary: React.FC<SummaryProps> = ({
   paitoneTaxableRevenue,
   paitoneCompensation,
   totalInvoiceWithPaitone,
-  onSavePaitoneRevenue,
-  onDeletePaitoneRevenue,
 }) => {
-  const [isRevenueFormOpen, setIsRevenueFormOpen] = useState(false);
-  const [revenueInput, setRevenueInput] = useState('');
-  const [revenueError, setRevenueError] = useState('');
-  const [isSavingRevenue, setIsSavingRevenue] = useState(false);
-  const revenueInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!isRevenueFormOpen) return;
-    setRevenueInput((currentValue) => (currentValue ? currentValue : paitoneRevenue !== null ? String(paitoneRevenue) : ''));
-    setRevenueError('');
-    revenueInputRef.current?.focus();
-  }, [isRevenueFormOpen]);
-
-  useEffect(() => {
-    if (!isRevenueFormOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isSavingRevenue) {
-        setIsRevenueFormOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isRevenueFormOpen, isSavingRevenue]);
-
-  const handleSaveRevenue = async () => {
-    const parsed = parsePaitoneRevenueInput(revenueInput);
-    if (parsed.error || parsed.value === null) {
-      setRevenueError(parsed.error || 'Inserisci un importo valido.');
-      return;
-    }
-
-    try {
-      setIsSavingRevenue(true);
-      setRevenueError('');
-      await onSavePaitoneRevenue(parsed.value);
-      setIsRevenueFormOpen(false);
-    } catch {
-      setRevenueError('Salvataggio non riuscito. Riprova.');
-    } finally {
-      setIsSavingRevenue(false);
-    }
-  };
-
-  const handleDeleteRevenue = async () => {
-    const confirmDelete = window.confirm('Vuoi eliminare il fatturato centro sportivo di questo mese?');
-    if (!confirmDelete) return;
-
-    try {
-      setIsSavingRevenue(true);
-      await onDeletePaitoneRevenue();
-    } catch {
-      window.alert('Eliminazione non riuscita. Riprova.');
-    } finally {
-      setIsSavingRevenue(false);
-    }
-  };
-
   return (
     <div className="p-4 space-y-4 max-w-5xl mx-auto">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -193,33 +131,6 @@ const Summary: React.FC<SummaryProps> = ({
       <div className="bg-zinc-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-none">
         <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
           <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Fatturato centro sportivo</h3>
-          <div className="flex items-center gap-2">
-            {paitoneRevenue !== null && (
-              <button
-                onClick={handleDeleteRevenue}
-                disabled={isSavingRevenue}
-                className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                aria-label="Elimina fatturato centro sportivo"
-                title="Elimina"
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setRevenueInput(paitoneRevenue !== null ? String(paitoneRevenue) : '');
-                setRevenueError('');
-                setIsRevenueFormOpen(true);
-              }}
-              className="p-2 rounded-lg text-zinc-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-              aria-label="Aggiungi o modifica fatturato centro sportivo"
-              aria-haspopup="dialog"
-              aria-expanded={isRevenueFormOpen}
-              title="Aggiungi / Modifica"
-            >
-              <PlusIcon className="w-4 h-4" />
-            </button>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -246,70 +157,6 @@ const Summary: React.FC<SummaryProps> = ({
           <span className="font-bold text-zinc-100">{formatEuro(totalInvoiceWithPaitone)}</span>
         </p>
       </div>
-
-      {isRevenueFormOpen && (
-        <div
-          className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex justify-center items-center p-4"
-          onClick={() => {
-            if (!isSavingRevenue) setIsRevenueFormOpen(false);
-          }}
-        >
-          <div
-            className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="paitone-revenue-dialog-title"
-            aria-describedby="paitone-revenue-dialog-description"
-          >
-            <h2 id="paitone-revenue-dialog-title" className="text-2xl font-bold mb-2 text-white">
-              {paitoneRevenue !== null ? 'Modifica fatturato centro sportivo' : 'Inserisci fatturato centro sportivo'}
-            </h2>
-            <p id="paitone-revenue-dialog-description" className="text-sm text-zinc-400 mb-4">
-              Inserisci l&apos;importo lordo: al salvataggio verranno applicate automaticamente detrazioni e scaglioni dalle impostazioni.
-            </p>
-            <label htmlFor="paitoneRevenueMain" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
-              Fatturato (€)
-            </label>
-            <input
-              type="text"
-              id="paitoneRevenueMain"
-              ref={revenueInputRef}
-              value={revenueInput}
-              onChange={(e) => setRevenueInput(e.target.value)}
-              placeholder="0,00"
-              disabled={isSavingRevenue}
-              aria-invalid={Boolean(revenueError)}
-              aria-describedby={revenueError ? 'paitoneRevenueMainError' : undefined}
-              className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
-            />
-            {revenueError && (
-              <p id="paitoneRevenueMainError" className="text-sm text-red-400 mt-2">
-                {revenueError}
-              </p>
-            )}
-            <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-white/5">
-              <button
-                type="button"
-                onClick={() => setIsRevenueFormOpen(false)}
-                disabled={isSavingRevenue}
-                className="px-5 py-2.5 bg-white/5 text-zinc-300 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 text-sm font-semibold"
-              >
-                Annulla
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveRevenue}
-                disabled={isSavingRevenue}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white rounded-xl hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/20 text-sm font-semibold transition-all disabled:opacity-70"
-              >
-                Salva
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
