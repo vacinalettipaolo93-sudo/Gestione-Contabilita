@@ -9,6 +9,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   serverTimestamp,
   query,
   orderBy,
@@ -29,7 +30,13 @@ import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
 import { auth, db, signOut } from './firebase';
 import { getLessonTypeDisplayName } from './lessonUtils';
-import { sanitizePaitoneCompensationSettings } from './paitoneCompensation';
+import { calculatePaitoneCompensation, sanitizePaitoneCompensationSettings } from './paitoneCompensation';
+
+interface PaitoneRevenueEntry {
+  id: string;
+  monthKey: string;
+  revenue: number;
+}
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
@@ -40,6 +47,7 @@ const App: React.FC = () => {
 
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [paitoneRevenues, setPaitoneRevenues] = useState<PaitoneRevenueEntry[]>([]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -66,6 +74,7 @@ const App: React.FC = () => {
       setSettings(DEFAULT_SETTINGS);
       setExpenseCategories([]);
       setExpenses([]);
+      setPaitoneRevenues([]);
       return;
     }
 
@@ -73,6 +82,7 @@ const App: React.FC = () => {
     const lessonsCollectionRef = collection(db, 'users', user.uid, 'lessons');
     const expenseCategoriesRef = collection(db, 'users', user.uid, 'expense_categories');
     const expensesRef = collection(db, 'users', user.uid, 'expenses');
+    const paitoneRevenuesRef = collection(db, 'users', user.uid, 'paitone_revenues');
 
     const unsubscribeSettings = onSnapshot(
       settingsRef,
@@ -205,11 +215,31 @@ const App: React.FC = () => {
       }
     );
 
+    const unsubscribePaitoneRevenues = onSnapshot(
+      query(paitoneRevenuesRef, orderBy('monthKey', 'desc')),
+      (snapshot) => {
+        const revenues = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            monthKey: data.monthKey || '',
+            revenue: typeof data.revenue === 'number' ? data.revenue : Number(data.revenue || 0),
+          } as PaitoneRevenueEntry;
+        });
+        setPaitoneRevenues(revenues);
+      },
+      (error) => {
+        console.error('[Firestore] Errore listener paitone_revenues:', error);
+        setPaitoneRevenues([]);
+      }
+    );
+
     return () => {
       unsubscribeSettings();
       unsubscribeLessons();
       unsubscribeExpenseCategories();
       unsubscribeExpenses();
+      unsubscribePaitoneRevenues();
     };
   }, [user]);
 
@@ -454,6 +484,47 @@ const App: React.FC = () => {
     setIsFormOpen(true);
   };
 
+  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const canonicalCurrentPaitoneRevenue = paitoneRevenues.find((item) => item.id === currentMonthKey) || null;
+  const legacyCurrentPaitoneRevenue =
+    paitoneRevenues.find((item) => item.monthKey === currentMonthKey && item.id !== currentMonthKey) || null;
+  const currentPaitoneRevenue = canonicalCurrentPaitoneRevenue || legacyCurrentPaitoneRevenue;
+  const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
+  const totalInvoiceWithPaitone = summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome + paitoneSummary.compensation;
+
+  const handleSavePaitoneRevenue = async (revenue: number) => {
+    if (!user) return;
+    const safeRevenue = Number.isFinite(revenue) ? Math.max(0, revenue) : 0;
+    const now = serverTimestamp();
+    const canonicalRef = doc(db, 'users', user.uid, 'paitone_revenues', currentMonthKey);
+    const batch = writeBatch(db);
+
+    if (canonicalCurrentPaitoneRevenue) {
+      batch.update(canonicalRef, { revenue: safeRevenue, updatedAt: now });
+    } else {
+      batch.set(canonicalRef, { monthKey: currentMonthKey, revenue: safeRevenue, createdAt: now, updatedAt: now });
+    }
+
+    if (legacyCurrentPaitoneRevenue) {
+      const legacyRef = doc(db, 'users', user.uid, 'paitone_revenues', legacyCurrentPaitoneRevenue.id);
+      batch.delete(legacyRef);
+    }
+
+    await batch.commit();
+  };
+
+  const handleDeletePaitoneRevenue = async () => {
+    if (!user || !currentPaitoneRevenue) return;
+    const batch = writeBatch(db);
+    paitoneRevenues
+      .filter((entry) => entry.monthKey === currentMonthKey || entry.id === currentMonthKey)
+      .forEach((entry) => {
+        const ref = doc(db, 'users', user.uid, 'paitone_revenues', entry.id);
+        batch.delete(ref);
+      });
+    await batch.commit();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-indigo-500 font-bold animate-pulse">
@@ -491,6 +562,13 @@ const App: React.FC = () => {
           taxRate={summaryData.taxRate}
           totalExpenses={totalExpensesMonth}
           netProfit={netProfitMonth}
+          paitoneRevenue={currentPaitoneRevenue?.revenue ?? null}
+          paitoneDeductibleCosts={paitoneSummary.deductibleCosts}
+          paitoneTaxableRevenue={paitoneSummary.taxableRevenue}
+          paitoneCompensation={paitoneSummary.compensation}
+          totalInvoiceWithPaitone={totalInvoiceWithPaitone}
+          onSavePaitoneRevenue={handleSavePaitoneRevenue}
+          onDeletePaitoneRevenue={handleDeletePaitoneRevenue}
         />
 
         <LessonList
@@ -550,6 +628,7 @@ const App: React.FC = () => {
         lessons={lessons}
         settings={settings}
         currentDate={currentDate}
+        paitoneRevenue={currentPaitoneRevenue?.revenue ?? 0}
       />
     </div>
   );

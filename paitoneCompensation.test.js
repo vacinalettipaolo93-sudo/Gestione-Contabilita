@@ -62,6 +62,17 @@ test('gestisce input vuoti/non validi senza NaN', () => {
   assert.equal(result.compensation, 0);
 });
 
+test('gestisce decimali con virgola e valori negativi', () => {
+  const decimalResult = calculatePaitoneCompensation('7120,50', baseConfig);
+  assert.equal(decimalResult.taxableRevenue, 3000.5);
+  assert.equal(decimalResult.compensation, 3000 * 0.08 + 0.5 * 0.12);
+
+  const negativeResult = calculatePaitoneCompensation(-10, baseConfig);
+  assert.equal(negativeResult.revenue, 0);
+  assert.equal(negativeResult.taxableRevenue, 0);
+  assert.equal(negativeResult.compensation, 0);
+});
+
 test('normalizza la seconda soglia se inferiore alla prima', () => {
   const result = calculatePaitoneCompensation(12120, {
     ...baseConfig,
