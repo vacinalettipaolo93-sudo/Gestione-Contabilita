@@ -18,6 +18,15 @@ const PADEL_CENTER_ID = 'padel-center';
 
 export const DEFAULT_SETTINGS: Settings = {
   taxRate: 0,
+  paitoneCompensation: {
+    rentCost: 3000,
+    collaboratorCost: 1120,
+    firstBracketLimit: 3000,
+    secondBracketLimit: 6000,
+    firstBracketRate: 8,
+    secondBracketRate: 12,
+    thirdBracketRate: 15,
+  },
   sports: [
     {
       id: TENNIS_ID,

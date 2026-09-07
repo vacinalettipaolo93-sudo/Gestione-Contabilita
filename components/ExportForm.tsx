@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { Lesson, Settings } from '../types';
 import { getLessonTypeDisplayName } from '../lessonUtils';
 import { DocumentArrowDownIcon, SpinnerIcon } from './icons';
+import { calculatePaitoneCompensation } from '../paitoneCompensation';
 
 interface ExportFormProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
     const [selectedSportId, setSelectedSportId] = useState('all');
     const [selectedLocationId, setSelectedLocationId] = useState('all');
     const [includeNetDetails, setIncludeNetDetails] = useState(true);
+    const [paitoneRevenue, setPaitoneRevenue] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -32,6 +34,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
             setSelectedSportId('all');
             setSelectedLocationId('all');
             setIncludeNetDetails(true);
+            setPaitoneRevenue('');
             setLoading(false);
         }
     }, [isOpen, currentDate]);
@@ -135,8 +138,10 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     
                     const taxRate = settings.taxRate || 0;
                     const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
+                    const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
+                    const totalWithPaitoneCompensation = (includeNetDetails ? totalInvoicedNet : totalInvoicedGross) + paitoneSummary.compensation;
 
-                    const totalOverall = includeNetDetails ? (totalInvoicedNet + totalNotInvoiced) : (totalInvoicedGross + totalNotInvoiced);
+                    const totalOverall = totalWithPaitoneCompensation + totalNotInvoiced;
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
@@ -164,6 +169,24 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     } else {
                         finalY += 3;
                     }
+
+                    doc.setTextColor(150);
+                    doc.text(`Fatturato Paitone inserito:`, 14, finalY);
+                    doc.text(`€ ${paitoneSummary.revenue.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    finalY += 7;
+
+                    doc.text(`Costi sottratti (Affitto + Collaboratore):`, 14, finalY);
+                    doc.text(`- € ${paitoneSummary.deductibleCosts.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    finalY += 7;
+
+                    doc.text(`Base netta Paitone per scaglioni:`, 14, finalY);
+                    doc.text(`€ ${paitoneSummary.taxableRevenue.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    finalY += 7;
+
+                    doc.text(`Compenso aggiuntivo Paitone:`, 14, finalY);
+                    doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.setTextColor(100);
+                    finalY += 7;
                     
                     doc.text(`Utile Non Fatturato:`, 14, finalY);
                     doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
@@ -388,6 +411,26 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                             />
                             <span className="text-sm font-medium text-zinc-300">Mostra dettagli Netto (Tasse) nel PDF</span>
                          </label>
+                    </div>
+
+                    <div>
+                       <label htmlFor="paitoneRevenue" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
+                           Fatturato centro di Paitone (€)
+                       </label>
+                       <input
+                           type="number"
+                           id="paitoneRevenue"
+                           min="0"
+                           step="0.01"
+                           value={paitoneRevenue}
+                           onChange={(e) => setPaitoneRevenue(e.target.value)}
+                           placeholder="0.00"
+                           disabled={loading}
+                           className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
+                       />
+                       <p className="text-xs text-zinc-500 mt-1 ml-1">
+                           Verranno sottratti affitto e collaboratore dalle impostazioni prima del calcolo a scaglioni.
+                       </p>
                     </div>
                 </div>
 
