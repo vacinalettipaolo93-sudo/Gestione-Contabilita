@@ -1,5 +1,5 @@
-import React from 'react';
-import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon } from './icons';
+import React, { useEffect, useState } from 'react';
+import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon, PlusIcon, TrashIcon } from './icons';
 
 interface SummaryProps {
   totalLessons: number;
@@ -13,6 +13,13 @@ interface SummaryProps {
 
   totalExpenses: number;
   netProfit: number;
+  paitoneRevenue: number | null;
+  paitoneDeductibleCosts: number;
+  paitoneTaxableRevenue: number;
+  paitoneCompensation: number;
+  totalInvoiceWithPaitone: number;
+  onSavePaitoneRevenue: (revenue: number) => Promise<void>;
+  onDeletePaitoneRevenue: () => Promise<void>;
 }
 
 const SummaryCard: React.FC<{ title: string; value: string; subValue?: string; icon: React.ReactNode; colorClass: string }> = ({ title, value, subValue, icon, colorClass }) => (
@@ -52,6 +59,26 @@ const BreakdownCard: React.FC<{ title: string; data: Record<string, number> }> =
   </div>
 );
 
+const formatEuro = (amount: number) => `€ ${amount.toFixed(2)}`;
+
+const parseItalianAmount = (rawValue: string) => {
+  const normalized = rawValue.trim().replace(',', '.');
+  if (!normalized) {
+    return { value: null, error: 'Inserisci un importo di fatturato.' };
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return { value: null, error: 'Inserisci un importo valido.' };
+  }
+
+  if (parsed < 0) {
+    return { value: null, error: 'Il fatturato non può essere negativo.' };
+  }
+
+  return { value: parsed, error: '' };
+};
+
 const Summary: React.FC<SummaryProps> = ({
   totalLessons,
   lessonsBySport,
@@ -62,8 +89,59 @@ const Summary: React.FC<SummaryProps> = ({
   totalNotInvoicedIncome,
   taxRate,
   totalExpenses,
-  netProfit
+  netProfit,
+  paitoneRevenue,
+  paitoneDeductibleCosts,
+  paitoneTaxableRevenue,
+  paitoneCompensation,
+  totalInvoiceWithPaitone,
+  onSavePaitoneRevenue,
+  onDeletePaitoneRevenue,
 }) => {
+  const [isRevenueFormOpen, setIsRevenueFormOpen] = useState(false);
+  const [revenueInput, setRevenueInput] = useState('');
+  const [revenueError, setRevenueError] = useState('');
+  const [isSavingRevenue, setIsSavingRevenue] = useState(false);
+
+  useEffect(() => {
+    if (!isRevenueFormOpen) return;
+    setRevenueInput(paitoneRevenue !== null ? String(paitoneRevenue) : '');
+    setRevenueError('');
+  }, [isRevenueFormOpen, paitoneRevenue]);
+
+  const handleSaveRevenue = async () => {
+    const parsed = parseItalianAmount(revenueInput);
+    if (parsed.error || parsed.value === null) {
+      setRevenueError(parsed.error || 'Inserisci un importo valido.');
+      return;
+    }
+
+    try {
+      setIsSavingRevenue(true);
+      setRevenueError('');
+      await onSavePaitoneRevenue(parsed.value);
+      setIsRevenueFormOpen(false);
+    } catch {
+      setRevenueError('Salvataggio non riuscito. Riprova.');
+    } finally {
+      setIsSavingRevenue(false);
+    }
+  };
+
+  const handleDeleteRevenue = async () => {
+    const confirmDelete = window.confirm('Vuoi eliminare il fatturato centro sportivo di questo mese?');
+    if (!confirmDelete) return;
+
+    try {
+      setIsSavingRevenue(true);
+      await onDeletePaitoneRevenue();
+    } catch {
+      window.alert('Eliminazione non riuscita. Riprova.');
+    } finally {
+      setIsSavingRevenue(false);
+    }
+  };
+
   return (
     <div className="p-4 space-y-4 max-w-5xl mx-auto">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -115,6 +193,106 @@ const Summary: React.FC<SummaryProps> = ({
         <BreakdownCard title="Per Tipo" data={lessonsByLessonType} />
         <BreakdownCard title="Per Sede" data={lessonsByLocation} />
       </div>
+
+      <div className="bg-zinc-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-none">
+        <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Fatturato centro sportivo</h3>
+          <div className="flex items-center gap-2">
+            {paitoneRevenue !== null && (
+              <button
+                onClick={handleDeleteRevenue}
+                disabled={isSavingRevenue}
+                className="p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                aria-label="Elimina fatturato centro sportivo"
+                title="Elimina"
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setIsRevenueFormOpen(true)}
+              className="p-2 rounded-lg text-zinc-300 hover:text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+              aria-label="Aggiungi o modifica fatturato centro sportivo"
+              title="Aggiungi / Modifica"
+            >
+              <PlusIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-black/20 border border-white/5 rounded-xl p-3">
+            <p className="text-xs text-zinc-500 mb-1">Fatturato inserito</p>
+            <p className="text-zinc-100 font-semibold">{formatEuro(paitoneRevenue ?? 0)}</p>
+          </div>
+          <div className="bg-black/20 border border-white/5 rounded-xl p-3">
+            <p className="text-xs text-zinc-500 mb-1">Detrazioni (affitto + collaboratore)</p>
+            <p className="text-zinc-100 font-semibold">- {formatEuro(paitoneDeductibleCosts)}</p>
+          </div>
+          <div className="bg-black/20 border border-white/5 rounded-xl p-3">
+            <p className="text-xs text-zinc-500 mb-1">Base netta per scaglioni</p>
+            <p className="text-zinc-100 font-semibold">{formatEuro(paitoneTaxableRevenue)}</p>
+          </div>
+          <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-3">
+            <p className="text-xs text-emerald-300 mb-1">Totale da aggiungere alla fattura</p>
+            <p className="text-emerald-200 font-bold">+ {formatEuro(paitoneCompensation)}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-zinc-300 mt-4">
+          Totale fattura (netto fatturato + utile non fatturato + compenso centro sportivo):{' '}
+          <span className="font-bold text-zinc-100">{formatEuro(totalInvoiceWithPaitone)}</span>
+        </p>
+      </div>
+
+      {isRevenueFormOpen && (
+        <div
+          className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex justify-center items-center p-4"
+          onClick={() => {
+            if (!isSavingRevenue) setIsRevenueFormOpen(false);
+          }}
+        >
+          <div className="bg-zinc-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-white/10" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-2 text-white">
+              {paitoneRevenue !== null ? 'Modifica fatturato centro sportivo' : 'Inserisci fatturato centro sportivo'}
+            </h2>
+            <p className="text-sm text-zinc-400 mb-4">
+              Inserisci l&apos;importo lordo: al salvataggio verranno applicate automaticamente detrazioni e scaglioni dalle impostazioni.
+            </p>
+            <label htmlFor="paitoneRevenueMain" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
+              Fatturato (€)
+            </label>
+            <input
+              type="text"
+              id="paitoneRevenueMain"
+              value={revenueInput}
+              onChange={(e) => setRevenueInput(e.target.value)}
+              placeholder="0,00"
+              disabled={isSavingRevenue}
+              className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
+            />
+            {revenueError && <p className="text-sm text-red-400 mt-2">{revenueError}</p>}
+            <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setIsRevenueFormOpen(false)}
+                disabled={isSavingRevenue}
+                className="px-5 py-2.5 bg-white/5 text-zinc-300 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 text-sm font-semibold"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveRevenue}
+                disabled={isSavingRevenue}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 text-white rounded-xl hover:from-indigo-500 hover:to-cyan-400 shadow-lg shadow-indigo-500/20 text-sm font-semibold transition-all disabled:opacity-70"
+              >
+                Salva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

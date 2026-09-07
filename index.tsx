@@ -29,7 +29,13 @@ import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
 import { auth, db, signOut } from './firebase';
 import { getLessonTypeDisplayName } from './lessonUtils';
-import { sanitizePaitoneCompensationSettings } from './paitoneCompensation';
+import { calculatePaitoneCompensation, sanitizePaitoneCompensationSettings } from './paitoneCompensation';
+
+interface PaitoneRevenueEntry {
+  id: string;
+  monthKey: string;
+  revenue: number;
+}
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
@@ -40,6 +46,7 @@ const App: React.FC = () => {
 
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [paitoneRevenues, setPaitoneRevenues] = useState<PaitoneRevenueEntry[]>([]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -66,6 +73,7 @@ const App: React.FC = () => {
       setSettings(DEFAULT_SETTINGS);
       setExpenseCategories([]);
       setExpenses([]);
+      setPaitoneRevenues([]);
       return;
     }
 
@@ -73,6 +81,7 @@ const App: React.FC = () => {
     const lessonsCollectionRef = collection(db, 'users', user.uid, 'lessons');
     const expenseCategoriesRef = collection(db, 'users', user.uid, 'expense_categories');
     const expensesRef = collection(db, 'users', user.uid, 'expenses');
+    const paitoneRevenuesRef = collection(db, 'users', user.uid, 'paitone_revenues');
 
     const unsubscribeSettings = onSnapshot(
       settingsRef,
@@ -205,11 +214,31 @@ const App: React.FC = () => {
       }
     );
 
+    const unsubscribePaitoneRevenues = onSnapshot(
+      query(paitoneRevenuesRef, orderBy('monthKey', 'desc')),
+      (snapshot) => {
+        const revenues = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            monthKey: data.monthKey || '',
+            revenue: typeof data.revenue === 'number' ? data.revenue : Number(data.revenue || 0),
+          } as PaitoneRevenueEntry;
+        });
+        setPaitoneRevenues(revenues);
+      },
+      (error) => {
+        console.error('[Firestore] Errore listener paitone_revenues:', error);
+        setPaitoneRevenues([]);
+      }
+    );
+
     return () => {
       unsubscribeSettings();
       unsubscribeLessons();
       unsubscribeExpenseCategories();
       unsubscribeExpenses();
+      unsubscribePaitoneRevenues();
     };
   }, [user]);
 
@@ -454,6 +483,32 @@ const App: React.FC = () => {
     setIsFormOpen(true);
   };
 
+  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const currentPaitoneRevenue = paitoneRevenues.find((item) => item.monthKey === currentMonthKey) || null;
+  const paitoneSummary = calculatePaitoneCompensation(currentPaitoneRevenue?.revenue ?? 0, settings.paitoneCompensation);
+  const totalInvoiceWithPaitone = summaryData.totalInvoicedNet + summaryData.totalNotInvoicedIncome + paitoneSummary.compensation;
+
+  const handleSavePaitoneRevenue = async (revenue: number) => {
+    if (!user) return;
+    const safeRevenue = Number.isFinite(revenue) ? Math.max(0, revenue) : 0;
+    const now = serverTimestamp();
+
+    if (currentPaitoneRevenue) {
+      const ref = doc(db, 'users', user.uid, 'paitone_revenues', currentPaitoneRevenue.id);
+      await updateDoc(ref, { revenue: safeRevenue, updatedAt: now });
+      return;
+    }
+
+    const colRef = collection(db, 'users', user.uid, 'paitone_revenues');
+    await addDoc(colRef, { monthKey: currentMonthKey, revenue: safeRevenue, createdAt: now, updatedAt: now });
+  };
+
+  const handleDeletePaitoneRevenue = async () => {
+    if (!user || !currentPaitoneRevenue) return;
+    const ref = doc(db, 'users', user.uid, 'paitone_revenues', currentPaitoneRevenue.id);
+    await deleteDoc(ref);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-indigo-500 font-bold animate-pulse">
@@ -491,6 +546,13 @@ const App: React.FC = () => {
           taxRate={summaryData.taxRate}
           totalExpenses={totalExpensesMonth}
           netProfit={netProfitMonth}
+          paitoneRevenue={currentPaitoneRevenue?.revenue ?? null}
+          paitoneDeductibleCosts={paitoneSummary.deductibleCosts}
+          paitoneTaxableRevenue={paitoneSummary.taxableRevenue}
+          paitoneCompensation={paitoneSummary.compensation}
+          totalInvoiceWithPaitone={totalInvoiceWithPaitone}
+          onSavePaitoneRevenue={handleSavePaitoneRevenue}
+          onDeletePaitoneRevenue={handleDeletePaitoneRevenue}
         />
 
         <LessonList
@@ -550,6 +612,7 @@ const App: React.FC = () => {
         lessons={lessons}
         settings={settings}
         currentDate={currentDate}
+        paitoneRevenue={currentPaitoneRevenue?.revenue ?? 0}
       />
     </div>
   );

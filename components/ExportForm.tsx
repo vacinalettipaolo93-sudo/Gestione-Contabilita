@@ -12,16 +12,16 @@ interface ExportFormProps {
   lessons: Lesson[];
   settings: Settings;
   currentDate: Date;
+  paitoneRevenue: number;
 }
 
-const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, settings, currentDate }) => {
+const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, settings, currentDate, paitoneRevenue }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [filter, setFilter] = useState('all'); 
     const [selectedSportId, setSelectedSportId] = useState('all');
     const [selectedLocationId, setSelectedLocationId] = useState('all');
     const [includeNetDetails, setIncludeNetDetails] = useState(true);
-    const [paitoneRevenue, setPaitoneRevenue] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -34,7 +34,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
             setSelectedSportId('all');
             setSelectedLocationId('all');
             setIncludeNetDetails(true);
-            setPaitoneRevenue('');
             setLoading(false);
         }
     }, [isOpen, currentDate]);
@@ -420,24 +419,12 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                          </label>
                     </div>
 
-                    <div>
-                       <label htmlFor="paitoneRevenue" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
-                           Fatturato centro di Paitone (€)
-                       </label>
-                       <input
-                           type="number"
-                           id="paitoneRevenue"
-                           min="0"
-                           step="0.01"
-                           value={paitoneRevenue}
-                           onChange={(e) => setPaitoneRevenue(e.target.value)}
-                           placeholder="0.00"
-                           disabled={loading}
-                           className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-zinc-100"
-                       />
-                       <p className="text-xs text-zinc-500 mt-1 ml-1">
-                           Verranno sottratti affitto e collaboratore dalle impostazioni prima del calcolo a scaglioni.
-                       </p>
+                    <div className="bg-black/20 p-3 rounded-xl border border-white/5">
+                        <p className="text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Fatturato centro di Paitone (€)</p>
+                        <p className="text-zinc-100 text-sm font-semibold ml-1">€ {paitoneRevenue.toFixed(2)}</p>
+                        <p className="text-xs text-zinc-500 mt-1 ml-1">
+                            Inserimento disponibile dalla schermata principale in "Fatturato centro sportivo".
+                        </p>
                     </div>
                 </div>
 
