@@ -12,7 +12,7 @@ const parseNonNegativeNumber = (value: string) => {
     return parsedValue;
 };
 const normalizeSettings = (settings: Settings): Settings => {
-    const clonedSettings = JSON.parse(JSON.stringify(settings)) as Settings;
+    const clonedSettings = structuredClone(settings) as Settings;
     if (!clonedSettings.paitoneCompensation || typeof clonedSettings.paitoneCompensation !== 'object') {
         clonedSettings.paitoneCompensation = { ...DEFAULT_PAITONE_COMPENSATION };
     }
@@ -38,7 +38,7 @@ const SettingsForm: React.FC<{
 
     const updateSettings = (updater: (draft: Settings) => void) => {
         setLocalSettings(currentSettings => {
-            const newSettings = JSON.parse(JSON.stringify(currentSettings));
+            const newSettings = structuredClone(currentSettings);
             if (!newSettings.paitoneCompensation || typeof newSettings.paitoneCompensation !== 'object') {
                 newSettings.paitoneCompensation = { ...DEFAULT_PAITONE_COMPENSATION };
             }
