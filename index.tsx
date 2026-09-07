@@ -325,6 +325,7 @@ const App: React.FC = () => {
       paitoneCompensation: paitoneSummary.compensation,
       taxRate,
       totalExpenses: totalExpensesMonth,
+      totalIncomeIncludesPaitoneCompensation: false,
     });
 
     return {

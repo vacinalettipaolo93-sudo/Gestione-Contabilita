@@ -161,7 +161,7 @@ const Summary: React.FC<SummaryProps> = ({
         </p>
 
         <p className="text-sm text-zinc-300 mt-4">
-          Totale fattura (netto fatturato + utile non fatturato):{' '}
+          Totale fattura (netto fatturato incl. quota Paitone + utile non fatturato):{' '}
           <span className="font-bold text-zinc-100">{formatEuro(totalInvoiceWithPaitone)}</span>
         </p>
       </div>

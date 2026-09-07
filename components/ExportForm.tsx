@@ -133,16 +133,17 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 if (filteredLessons.length > 0) {
                     finalY = checkPageBreak(finalY, 20) + 15;
                     
+                    const totalIncome = filteredLessons.reduce((sum, l) => sum + (l.price - l.cost), 0);
                     const totalInvoicedGross = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
-                    const totalNotInvoiced = filteredLessons.filter(l => !l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
                     
                     const taxRate = settings.taxRate || 0;
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
                     const financialSummary = calculateFinancialSummary({
-                        totalIncome: totalInvoicedGross + totalNotInvoiced,
+                        totalIncome,
                         lessonsInvoicedGross: totalInvoicedGross,
                         paitoneCompensation: paitoneSummary.compensation,
                         taxRate,
+                        totalIncomeIncludesPaitoneCompensation: false,
                     });
                     const totalOverall = financialSummary.totalInvoice;
 
@@ -153,14 +154,14 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(11);
 
-                    doc.text(`Fatturato Lordo (Fatturato):`, 14, finalY);
+                    doc.text(`Fatturato Lordo (incluso compenso Paitone calcolato):`, 14, finalY);
                     doc.text(`€ ${financialSummary.totalInvoicedGross.toFixed(2)}`, 200, finalY, { align: 'right' });
                     finalY += 7;
                     
                     if (includeNetDetails) {
                         doc.setTextColor(150);
                         doc.text(`Tasse / Ritenuta applicata (${taxRate}%):`, 14, finalY);
-                        doc.text(`- € ${(financialSummary.totalInvoicedGross * (taxRate / 100)).toFixed(2)}`, 200, finalY, { align: 'right' });
+                        doc.text(`- € ${(financialSummary.totalInvoicedGross - financialSummary.totalInvoicedNet).toFixed(2)}`, 200, finalY, { align: 'right' });
                         doc.setTextColor(100);
                         finalY += 7;
                         
@@ -204,7 +205,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     }
                     
                     doc.text(`Utile Non Fatturato:`, 14, finalY);
-                    doc.text(`€ ${totalNotInvoiced.toFixed(2)}`, 200, finalY, { align: 'right' });
+                    doc.text(`€ ${financialSummary.totalNotInvoicedIncome.toFixed(2)}`, 200, finalY, { align: 'right' });
                     finalY += 2;
                     
                     doc.line(14, finalY, 200, finalY); 

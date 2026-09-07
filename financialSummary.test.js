@@ -51,3 +51,64 @@ test('gestisce input non validi senza duplicazioni o NaN', () => {
   assert.equal(result.netProfit, 0);
   assert.equal(result.paitoneNetCompensation, 0);
 });
+
+test('evita doppio conteggio quando totalIncome include già la voce Paitone sintetica', () => {
+  const result = calculateFinancialSummary({
+    totalIncome: 2100, // 1500 lezioni + 600 voce Paitone in elenco
+    lessonsInvoicedGross: 1000,
+    paitoneCompensation: 600,
+    taxRate: 25,
+    totalIncomeIncludesPaitoneCompensation: true,
+  });
+
+  assert.equal(result.totalInvoicedGross, 1600);
+  assert.equal(result.totalInvoicedNet, 1200);
+  assert.equal(result.totalNotInvoicedIncome, 500);
+  assert.equal(result.totalInvoice, 1700);
+});
+
+test('normalizza totalIncome già inclusivo di Paitone quando inferiore al compenso', () => {
+  const result = calculateFinancialSummary({
+    totalIncome: 200,
+    lessonsInvoicedGross: 0,
+    paitoneCompensation: 600,
+    taxRate: 25,
+    totalIncomeIncludesPaitoneCompensation: true,
+  });
+
+  assert.equal(result.totalNotInvoicedIncome, 0);
+  assert.equal(result.totalInvoicedGross, 600);
+  assert.equal(result.totalInvoicedNet, 450);
+});
+
+test('non produce utile non fatturato negativo', () => {
+  const result = calculateFinancialSummary({
+    totalIncome: 500,
+    lessonsInvoicedGross: 700,
+    paitoneCompensation: 0,
+    taxRate: 0,
+  });
+
+  assert.equal(result.totalNotInvoicedIncome, 0);
+  assert.equal(result.totalInvoice, 700);
+});
+
+test('limita la partita IVA tra 0% e 100%', () => {
+  const overHundred = calculateFinancialSummary({
+    totalIncome: 1000,
+    lessonsInvoicedGross: 1000,
+    paitoneCompensation: 500,
+    taxRate: 130,
+  });
+  assert.equal(overHundred.totalInvoicedNet, 0);
+  assert.equal(overHundred.paitoneNetCompensation, 0);
+
+  const negative = calculateFinancialSummary({
+    totalIncome: 1000,
+    lessonsInvoicedGross: 1000,
+    paitoneCompensation: 500,
+    taxRate: -10,
+  });
+  assert.equal(negative.totalInvoicedNet, 1500);
+  assert.equal(negative.paitoneNetCompensation, 500);
+});
