@@ -17,8 +17,6 @@ interface SummaryProps {
   paitoneDeductibleCosts: number;
   paitoneTaxableRevenue: number;
   paitoneCompensation: number;
-  paitoneNetCompensation: number;
-  totalInvoiceWithPaitone: number;
 }
 
 const SummaryCard: React.FC<{ title: string; value: string; subValue?: string; icon: React.ReactNode; colorClass: string }> = ({ title, value, subValue, icon, colorClass }) => (
@@ -75,8 +73,6 @@ const Summary: React.FC<SummaryProps> = ({
   paitoneDeductibleCosts,
   paitoneTaxableRevenue,
   paitoneCompensation,
-  paitoneNetCompensation,
-  totalInvoiceWithPaitone,
 }) => {
   return (
     <div className="p-4 space-y-4 max-w-5xl mx-auto">
@@ -154,16 +150,6 @@ const Summary: React.FC<SummaryProps> = ({
             <p className="text-emerald-200 font-bold">+ {formatEuro(paitoneCompensation)}</p>
           </div>
         </div>
-
-        <p className="text-sm text-zinc-300 mt-4">
-          Quota netta centro sportivo dopo partita IVA ({taxRate}%):{' '}
-          <span className="font-bold text-zinc-100">{formatEuro(paitoneNetCompensation)}</span>
-        </p>
-
-        <p className="text-sm text-zinc-300 mt-4">
-          Totale fattura (netto fatturato incl. quota Paitone + utile non fatturato):{' '}
-          <span className="font-bold text-zinc-100">{formatEuro(totalInvoiceWithPaitone)}</span>
-        </p>
       </div>
     </div>
   );

@@ -581,8 +581,6 @@ const App: React.FC = () => {
           paitoneDeductibleCosts={paitoneSummary.deductibleCosts}
           paitoneTaxableRevenue={paitoneSummary.taxableRevenue}
           paitoneCompensation={paitoneSummary.compensation}
-          paitoneNetCompensation={summaryData.paitoneNetCompensation}
-          totalInvoiceWithPaitone={summaryData.totalInvoice}
         />
 
         <LessonList
