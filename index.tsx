@@ -29,6 +29,7 @@ import { PlusIcon } from './components/icons';
 import { DEFAULT_SETTINGS } from './constants';
 import { auth, db, signOut } from './firebase';
 import { getLessonTypeDisplayName } from './lessonUtils';
+import { sanitizePaitoneCompensationSettings } from './paitoneCompensation';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
@@ -84,6 +85,7 @@ const App: React.FC = () => {
             ...DEFAULT_SETTINGS,
             ...loadedData,
             taxRate: typeof loadedData?.taxRate === 'number' ? loadedData.taxRate : 0,
+            paitoneCompensation: sanitizePaitoneCompensationSettings(loadedData?.paitoneCompensation),
             sports: sportsSource
               .filter((sport: unknown): sport is Partial<SportSetting> => sport && typeof sport === 'object')
               .map((sport: Partial<SportSetting>): SportSetting => ({

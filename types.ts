@@ -20,6 +20,15 @@ export interface SportSetting {
 export interface Settings {
   sports: SportSetting[];
   taxRate: number;
+  paitoneCompensation: {
+    rentCost: number;
+    collaboratorCost: number;
+    firstBracketLimit: number;
+    secondBracketLimit: number;
+    firstBracketRate: number;
+    secondBracketRate: number;
+    thirdBracketRate: number;
+  };
 }
 
 export interface Lesson {

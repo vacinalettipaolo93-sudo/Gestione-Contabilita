@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Lesson } from '../types';
 import { TrashIcon, PlusIcon, ReceiptPercentIcon } from './icons';
+import { DEFAULT_PAITONE_COMPENSATION } from '../paitoneCompensation';
 
 const isSportInUse = (sportId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId);
 const isLessonTypeInUse = (sportId: string, lessonTypeId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId && l.lessonTypeId === lessonTypeId);
 const isLocationInUse = (sportId: string, locationId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId && l.locationId === locationId);
+const parseNonNegativeNumber = (value: string) => {
+    const parsedValue = Number(value.replace(',', '.'));
+    if (!Number.isFinite(parsedValue) || parsedValue < 0) return 0;
+    return parsedValue;
+};
+const normalizeSettings = (settings: Settings): Settings => {
+    const clonedSettings = structuredClone(settings) as Settings;
+    if (!clonedSettings.paitoneCompensation || typeof clonedSettings.paitoneCompensation !== 'object') {
+        clonedSettings.paitoneCompensation = { ...DEFAULT_PAITONE_COMPENSATION };
+    }
+    return clonedSettings;
+};
 
 const SettingsForm: React.FC<{
     isOpen: boolean;
@@ -15,17 +28,20 @@ const SettingsForm: React.FC<{
     onRestoreLatestBackup: () => void;
 }> = ({ isOpen, onClose, settings, lessons, onSave, onRestoreLatestBackup }) => {
 
-    const [localSettings, setLocalSettings] = useState<Settings>(JSON.parse(JSON.stringify(settings)));
+    const [localSettings, setLocalSettings] = useState<Settings>(normalizeSettings(settings));
 
     useEffect(() => {
         if (isOpen) {
-            setLocalSettings(JSON.parse(JSON.stringify(settings)));
+            setLocalSettings(normalizeSettings(settings));
         }
     }, [settings, isOpen]);
 
     const updateSettings = (updater: (draft: Settings) => void) => {
         setLocalSettings(currentSettings => {
-            const newSettings = JSON.parse(JSON.stringify(currentSettings));
+            const newSettings = structuredClone(currentSettings);
+            if (!newSettings.paitoneCompensation || typeof newSettings.paitoneCompensation !== 'object') {
+                newSettings.paitoneCompensation = { ...DEFAULT_PAITONE_COMPENSATION };
+            }
             updater(newSettings);
             return newSettings;
         });
@@ -170,6 +186,120 @@ const SettingsForm: React.FC<{
                                     className="w-24 pl-3 pr-8 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-indigo-500/50 outline-none text-white"
                                 />
                                 <span className="absolute right-3 top-2 text-zinc-400">%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                                <ReceiptPercentIcon className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-lg text-zinc-100">Compenso aggiuntivo centro di Paitone</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneRentCost" className="text-sm font-semibold text-zinc-300">Costo affitto (€)</label>
+                                <input
+                                    id="paitoneRentCost"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.rentCost ?? DEFAULT_PAITONE_COMPENSATION.rentCost}
+                                    onChange={(e) => updateSettings(draft => { draft.paitoneCompensation.rentCost = parseNonNegativeNumber(e.target.value); })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneCollaboratorCost" className="text-sm font-semibold text-zinc-300">Costo collaboratore (€)</label>
+                                <input
+                                    id="paitoneCollaboratorCost"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.collaboratorCost ?? DEFAULT_PAITONE_COMPENSATION.collaboratorCost}
+                                    onChange={(e) => updateSettings(draft => { draft.paitoneCompensation.collaboratorCost = parseNonNegativeNumber(e.target.value); })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneFirstBracketLimit" className="text-sm font-semibold text-zinc-300">Soglia 1 (fino a €)</label>
+                                <input
+                                    id="paitoneFirstBracketLimit"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.firstBracketLimit ?? DEFAULT_PAITONE_COMPENSATION.firstBracketLimit}
+                                    onChange={(e) => updateSettings(draft => {
+                                        const value = parseNonNegativeNumber(e.target.value);
+                                        draft.paitoneCompensation.firstBracketLimit = value;
+                                        if (draft.paitoneCompensation.secondBracketLimit < value) {
+                                            draft.paitoneCompensation.secondBracketLimit = value;
+                                        }
+                                    })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneSecondBracketLimit" className="text-sm font-semibold text-zinc-300">Soglia 2 (fino a €)</label>
+                                <input
+                                    id="paitoneSecondBracketLimit"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.secondBracketLimit ?? DEFAULT_PAITONE_COMPENSATION.secondBracketLimit}
+                                    onChange={(e) => updateSettings(draft => {
+                                        const value = parseNonNegativeNumber(e.target.value);
+                                        draft.paitoneCompensation.secondBracketLimit = Math.max(value, draft.paitoneCompensation.firstBracketLimit);
+                                    })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneFirstBracketRate" className="text-sm font-semibold text-zinc-300">Percentuale 1 (%)</label>
+                                <p className="text-xs text-zinc-500 mt-1">Applicata fino alla soglia 1</p>
+                                <input
+                                    id="paitoneFirstBracketRate"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.firstBracketRate ?? DEFAULT_PAITONE_COMPENSATION.firstBracketRate}
+                                    onChange={(e) => updateSettings(draft => { draft.paitoneCompensation.firstBracketRate = parseNonNegativeNumber(e.target.value); })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                <label htmlFor="paitoneSecondBracketRate" className="text-sm font-semibold text-zinc-300">Percentuale 2 (%)</label>
+                                <p className="text-xs text-zinc-500 mt-1">Applicata tra soglia 1 e soglia 2</p>
+                                <input
+                                    id="paitoneSecondBracketRate"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.secondBracketRate ?? DEFAULT_PAITONE_COMPENSATION.secondBracketRate}
+                                    onChange={(e) => updateSettings(draft => { draft.paitoneCompensation.secondBracketRate = parseNonNegativeNumber(e.target.value); })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
+                            </div>
+
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 md:col-span-2">
+                                <label htmlFor="paitoneThirdBracketRate" className="text-sm font-semibold text-zinc-300">Percentuale 3 (%)</label>
+                                <p className="text-xs text-zinc-500 mt-1">Applicata oltre la soglia 2</p>
+                                <input
+                                    id="paitoneThirdBracketRate"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={localSettings.paitoneCompensation?.thirdBracketRate ?? DEFAULT_PAITONE_COMPENSATION.thirdBracketRate}
+                                    onChange={(e) => updateSettings(draft => { draft.paitoneCompensation.thirdBracketRate = parseNonNegativeNumber(e.target.value); })}
+                                    className="mt-2 w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-right font-mono focus:ring-2 focus:ring-cyan-500/50 outline-none text-white"
+                                />
                             </div>
                         </div>
                     </div>
