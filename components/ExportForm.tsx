@@ -140,9 +140,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     const totalInvoicedNet = totalInvoicedGross * (1 - (taxRate / 100));
                     const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
                     const appliedPaitoneCompensation = paitoneSummary.compensation;
-                    const totalOverall = includeNetDetails
-                        ? (totalInvoicedNet + totalNotInvoiced + appliedPaitoneCompensation)
-                        : (totalInvoicedGross + totalNotInvoiced + appliedPaitoneCompensation);
+                    const totalOverall = totalInvoicedNet + totalNotInvoiced + appliedPaitoneCompensation;
 
                     doc.setFontSize(12);
                     doc.setFont('helvetica', 'bold');
@@ -206,9 +204,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0);
-                    const totalLabel = includeNetDetails
-                        ? 'Totale Netto Complessivo:'
-                        : 'Totale Complessivo (Lordo + Compenso Paitone):';
+                    const totalLabel = 'Totale Netto Complessivo:';
                     doc.text(totalLabel, 14, finalY);
                     doc.text(`€ ${totalOverall.toFixed(2)}`, 200, finalY, { align: 'right' });
                      doc.setTextColor(100);
