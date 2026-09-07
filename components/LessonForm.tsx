@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lesson, Settings } from '../types';
-import { parsePaitoneRevenueInput } from '../paitoneRevenueValidation';
 import { CUSTOM_LESSON_TYPE_ID, PAITONE_REVENUE_LESSON_TYPE_ID, PAITONE_REVENUE_LESSON_TYPE_NAME } from '../lessonUtils';
+import { submitPaitoneRevenue } from '../paitoneRevenueSubmission';
 
 interface LessonFormProps {
   isOpen: boolean;
@@ -152,15 +152,14 @@ const LessonForm: React.FC<LessonFormProps> = ({
     e.preventDefault();
 
     if (isPaitoneRevenueType) {
-      const parsed = parsePaitoneRevenueInput(paitoneRevenueInput);
-      if (parsed.error || parsed.value === null) {
-        setPaitoneRevenueError(parsed.error || 'Inserisci un importo valido.');
-        return;
-      }
       try {
         setIsSavingPaitoneRevenue(true);
         setPaitoneRevenueError('');
-        await onSavePaitoneRevenue(parsed.value);
+        const result = await submitPaitoneRevenue(paitoneRevenueInput, onSavePaitoneRevenue);
+        if (!result.success) {
+          setPaitoneRevenueError(result.error);
+          return;
+        }
         onClose();
       } catch {
         setPaitoneRevenueError('Salvataggio non riuscito. Riprova.');
@@ -286,38 +285,56 @@ const LessonForm: React.FC<LessonFormProps> = ({
             <label htmlFor="lessonType" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
               Tipo Lezione
             </label>
-            <select
-              id="lessonType"
-              value={lessonTypeId}
-              onChange={(e) => setLessonTypeId(e.target.value)}
-              disabled={isEditingPaitoneRevenueEntry}
-              className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
-            >
-              {!isEditingPaitoneRevenueEntry &&
-                availableLessonTypes.map((lt) => (
+            {isEditingPaitoneRevenueEntry ? (
+              <div
+                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-zinc-100"
+                role="textbox"
+                aria-readonly="true"
+                aria-label="Tipo voce in modifica"
+              >
+                🏟️ {PAITONE_REVENUE_LESSON_TYPE_NAME}
+              </div>
+            ) : (
+              <select
+                id="lessonType"
+                value={lessonTypeId}
+                onChange={(e) => setLessonTypeId(e.target.value)}
+                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
+              >
+                {availableLessonTypes.map((lt) => (
                   <option key={lt.id} value={lt.id}>
                     {lt.name}
                   </option>
                 ))}
-              {!isEditingPaitoneRevenueEntry && <option value={CUSTOM_LESSON_TYPE_ID}>➕ Personalizzato (incasso al volo)</option>}
-              <option value={PAITONE_REVENUE_LESSON_TYPE_ID}>🏟️ {PAITONE_REVENUE_LESSON_TYPE_NAME}</option>
-            </select>
+                <option value={CUSTOM_LESSON_TYPE_ID}>➕ Personalizzato (incasso al volo)</option>
+                <option value={PAITONE_REVENUE_LESSON_TYPE_ID}>🏟️ {PAITONE_REVENUE_LESSON_TYPE_NAME}</option>
+              </select>
+            )}
           </div>
 
           {isPaitoneRevenueType && (
             <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
               <div>
-                <label className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">Fatturato mese corrente (€)</label>
+                <label htmlFor="paitoneRevenueInput" className="block text-xs font-bold uppercase text-zinc-400 mb-1 ml-1">
+                  Fatturato mese corrente (€)
+                </label>
                 <input
                   type="text"
+                  id="paitoneRevenueInput"
                   value={paitoneRevenueInput}
                   onChange={(e) => setPaitoneRevenueInput(e.target.value)}
                   className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-zinc-100"
                   placeholder="0,00"
                   disabled={isSavingPaitoneRevenue}
+                  aria-invalid={Boolean(paitoneRevenueError)}
+                  aria-describedby={paitoneRevenueError ? 'paitoneRevenueInputError' : undefined}
                 />
               </div>
-              {paitoneRevenueError && <p className="text-sm text-red-400">{paitoneRevenueError}</p>}
+              {paitoneRevenueError && (
+                <p id="paitoneRevenueInputError" className="text-sm text-red-400">
+                  {paitoneRevenueError}
+                </p>
+              )}
               <p className="text-xs text-zinc-500">
                 Verranno applicati automaticamente costi deducibili e scaglioni configurati nelle impostazioni.
               </p>
