@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { normalizeLocationOrder, moveLocation, orderLocationEntries } from './locationOrder.js';
 import { calculateFinancialSummary } from './financialSummary.js';
 
@@ -95,4 +96,16 @@ test('riepiloghi e PDF seguono l’ordine configurato, non quantità, utile o no
   assert.deepEqual(orderLocationEntries({ 1: 10, 2: 20 }, ['2', '1']), [['2', 20], ['1', 10]]);
   assert.deepEqual(orderLocationEntries({ Gavardo: 10, Paitone: 2, Unknown: 1 }, ['Paitone', 'Paitone', 'Gavardo']),
     [['Paitone', 2], ['Gavardo', 10], ['Unknown', 1]]);
+});
+
+test('il PDF filtrato rispetta l’ordine dello sport selezionato anche con sedi omonime', () => {
+  const sports = [
+    { id: 'tennis', locations: normalizeLocationOrder(locations) },
+    { id: 'padel', locations: moveLocation(locations, 'paitone', 0) },
+  ];
+  const selectedLocations = sports.find(sport => sport.id === 'padel').locations;
+  assert.deepEqual(orderLocationEntries({ Gavardo: 10, Paitone: 2 }, selectedLocations.map(loc => loc.name)),
+    [['Paitone', 2], ['Gavardo', 10]]);
+  const exportSource = readFileSync(new URL('./components/ExportForm.tsx', import.meta.url), 'utf8');
+  assert.match(exportSource, /const locationNames = availableLocations\.map\(location => location\.name\)/);
 });

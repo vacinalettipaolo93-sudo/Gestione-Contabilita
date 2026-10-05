@@ -215,7 +215,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     }, {} as Record<string, number>);
 
 
-                    const locationNames = settings.sports.flatMap(sport => sport.locations.map(location => location.name));
+                    const locationNames = availableLocations.map(location => location.name);
                     const createBreakdownTable = (title: string, data: Record<string, number>, byLocation = false) => {
                         if (Object.keys(data).length > 0) {
                             finalY = checkPageBreak(finalY, 25) + 8;
