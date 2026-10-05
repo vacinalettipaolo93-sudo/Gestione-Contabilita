@@ -116,6 +116,14 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
 
                 autoTable(doc, {
                     startY: 40,
+                    head: [['Data', 'Sport', 'Tipo Lezione', 'Sede', 'Stato', 'Utile']],
+                    body: tableData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229] } // Indigo
+                });
+
+                autoTable(doc, {
+                    startY: (doc as any).lastAutoTable.finalY + 10,
                     head: [['Riepilogo finanziario', 'Importo']],
                     body: buildPdfFinancialSummary({
                         totalIncome,
@@ -129,18 +137,13 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     columnStyles: { 0: { cellWidth: 140 }, 1: { halign: 'right' } },
                     rowPageBreak: 'avoid',
                     didParseCell: (data) => {
-                        if (data.row.raw[0] === 'Totale lordo (lezioni/attività + compenso Paitone)') {
+                        if (['Totale lezioni', 'Fatturato Paitone', 'Compenso Paitone (lordo)', 'Totale lordo lezioni + compenso Paitone', 'Totale netto'].includes(data.row.raw[0])) {
                             data.cell.styles.fontStyle = 'bold';
                         }
+                        if (data.row.raw[0] === 'Fatturato Paitone') {
+                            data.cell.styles.fillColor = [224, 231, 255];
+                        }
                     },
-                });
-
-                autoTable(doc, {
-                    startY: (doc as any).lastAutoTable.finalY + 10,
-                    head: [['Data', 'Sport', 'Tipo Lezione', 'Sede', 'Stato', 'Utile']],
-                    body: tableData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [79, 70, 229] } // Indigo
                 });
                 
                 let finalY = (doc as any).lastAutoTable.finalY;
@@ -360,7 +363,7 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                                 className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 bg-zinc-800"
                                 disabled={loading}
                             />
-                            <span className="text-sm font-medium text-zinc-300">Mostra anche dettagli netti e tasse nel PDF</span>
+                            <span className="text-sm font-medium text-zinc-300">Mostra anche il totale netto e le tasse nel PDF</span>
                          </label>
                          <p className="text-xs text-zinc-500 mt-2">I totali lordi e gli scaglioni Paitone restano sempre visibili.</p>
                     </div>

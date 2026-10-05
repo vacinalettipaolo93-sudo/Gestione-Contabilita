@@ -38,7 +38,11 @@ export const buildPdfFinancialSummary = ({
 
   /** @type {[string, string][]} */
   const rows = [
+    ['Totale lezioni', formatEuro(totalIncome)],
+    ['Fatturato Paitone', 'Importo lordo'],
     ['Totale fatturato Paitone', formatEuro(paitone.revenue)],
+    ['Affitto Paitone', `- ${formatEuro(config.rentCost)}`],
+    ['Collaboratore Paitone', `- ${formatEuro(config.collaboratorCost)}`],
     ['Detrazioni Paitone (affitto + collaboratore)', `- ${formatEuro(paitone.deductibleCosts)}`],
     ['Base Paitone per scaglioni (dopo detrazioni)', formatEuro(taxableRevenue)],
     ['Percentuali scaglioni', 'Compenso lordo'],
@@ -46,18 +50,13 @@ export const buildPdfFinancialSummary = ({
     [`Da ${formatEuro(config.firstBracketLimit)} a ${formatEuro(config.secondBracketLimit)}: ${config.secondBracketRate}% su ${formatEuro(secondPortion)}`, formatEuro(secondPortion * config.secondBracketRate / 100)],
     [`Oltre ${formatEuro(config.secondBracketLimit)}: ${config.thirdBracketRate}% su ${formatEuro(thirdPortion)}`, formatEuro(thirdPortion * config.thirdBracketRate / 100)],
     ['Compenso Paitone (lordo)', formatEuro(paitone.compensation)],
-    ['Totale lordo lezioni/attività (escluso compenso Paitone)', formatEuro(totalIncome)],
-    ['Totale lordo (lezioni/attività + compenso Paitone)', formatEuro(totalIncome + paitone.compensation)],
-    ['Fatturato lordo (incluso compenso Paitone)', formatEuro(financial.totalInvoicedGross)],
-    ['Utile non fatturato', formatEuro(financial.totalNotInvoicedIncome)],
+    ['Totale lordo lezioni + compenso Paitone', formatEuro(totalIncome + paitone.compensation)],
   ];
 
   if (includeNetDetails) {
     rows.push(
-      [`Tasse / Ritenuta applicata (${settings.taxRate || 0}%)`, `- ${formatEuro(financial.totalInvoicedGross - financial.totalInvoicedNet)}`],
-      ['Fatturato netto', formatEuro(financial.totalInvoicedNet)],
-      ['Compenso Paitone (netto dopo partita IVA)', formatEuro(financial.paitoneNetCompensation)],
-      ['Totale netto complessivo', formatEuro(financial.totalInvoice)]
+      ['Totale netto', formatEuro(financial.totalInvoice)],
+      [`Tasse / Ritenuta applicata (${settings.taxRate || 0}%)`, `- ${formatEuro(financial.totalInvoicedGross - financial.totalInvoicedNet)}`]
     );
   }
 
