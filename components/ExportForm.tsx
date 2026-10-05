@@ -4,8 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { Lesson, Settings } from '../types';
 import { getLessonTypeDisplayName } from '../lessonUtils';
 import { DocumentArrowDownIcon, SpinnerIcon } from './icons';
-import { calculatePaitoneCompensation } from '../paitoneCompensation';
-import { calculateFinancialSummary } from '../financialSummary';
+import { buildPdfFinancialSummary } from '../pdfFinancialSummary';
 
 interface ExportFormProps {
   isOpen: boolean;
@@ -112,8 +111,32 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     ];
                 });
 
+                const totalIncome = filteredLessons.reduce((sum, l) => sum + (l.price - l.cost), 0);
+                const lessonsInvoicedGross = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
+
                 autoTable(doc, {
                     startY: 40,
+                    head: [['Riepilogo finanziario', 'Importo']],
+                    body: buildPdfFinancialSummary({
+                        totalIncome,
+                        lessonsInvoicedGross,
+                        paitoneRevenue,
+                        settings,
+                        includeNetDetails,
+                    }),
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229] },
+                    columnStyles: { 0: { cellWidth: 140 }, 1: { halign: 'right' } },
+                    rowPageBreak: 'avoid',
+                    didParseCell: (data) => {
+                        if (data.row.raw[0] === 'Totale lordo (lezioni/attività + compenso Paitone)') {
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    },
+                });
+
+                autoTable(doc, {
+                    startY: (doc as any).lastAutoTable.finalY + 10,
                     head: [['Data', 'Sport', 'Tipo Lezione', 'Sede', 'Stato', 'Utile']],
                     body: tableData,
                     theme: 'striped',
@@ -131,94 +154,6 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                 };
 
                 if (filteredLessons.length > 0) {
-                    finalY = checkPageBreak(finalY, 20) + 15;
-                    
-                    const totalIncome = filteredLessons.reduce((sum, l) => sum + (l.price - l.cost), 0);
-                    const totalInvoicedGross = filteredLessons.filter(l => l.invoiced).reduce((sum, l) => sum + (l.price - l.cost), 0);
-                    
-                    const taxRate = settings.taxRate || 0;
-                    const paitoneSummary = calculatePaitoneCompensation(paitoneRevenue, settings.paitoneCompensation);
-                    const financialSummary = calculateFinancialSummary({
-                        totalIncome,
-                        lessonsInvoicedGross: totalInvoicedGross,
-                        paitoneCompensation: paitoneSummary.compensation,
-                        taxRate,
-                        totalIncomeIncludesPaitoneCompensation: false,
-                    });
-                    const totalOverall = financialSummary.totalInvoice;
-
-                    doc.setFontSize(12);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Riepilogo Finanziario', 14, finalY);
-                    finalY += 8;
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(11);
-
-                    doc.text(`Fatturato Lordo (incluso compenso Paitone calcolato):`, 14, finalY);
-                    doc.text(`€ ${financialSummary.totalInvoicedGross.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 7;
-                    
-                    if (includeNetDetails) {
-                        doc.setTextColor(150);
-                        doc.text(`Tasse / Ritenuta applicata (${taxRate}%):`, 14, finalY);
-                        doc.text(`- € ${(financialSummary.totalInvoicedGross - financialSummary.totalInvoicedNet).toFixed(2)}`, 200, finalY, { align: 'right' });
-                        doc.setTextColor(100);
-                        finalY += 7;
-                        
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(`Fatturato Netto:`, 14, finalY);
-                        doc.text(`€ ${financialSummary.totalInvoicedNet.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        doc.setFont('helvetica', 'normal');
-                        finalY += 10;
-                    } else {
-                        finalY += 3;
-                    }
-
-                    if (includeNetDetails) {
-                        doc.setTextColor(150);
-                        doc.text(`Fatturato Paitone inserito:`, 14, finalY);
-                        doc.text(`€ ${paitoneSummary.revenue.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        finalY += 7;
-
-                        doc.text(`Costi sottratti (Affitto + Collaboratore):`, 14, finalY);
-                        doc.text(`- € ${paitoneSummary.deductibleCosts.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        finalY += 7;
-
-                        doc.text(`Base netta Paitone per scaglioni:`, 14, finalY);
-                        doc.text(`€ ${paitoneSummary.taxableRevenue.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        finalY += 7;
-
-                        doc.text(`Compenso lordo Paitone da aggiungere al fatturato:`, 14, finalY);
-                        doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        finalY += 7;
-
-                        doc.text(`Compenso netto Paitone dopo partita IVA:`, 14, finalY);
-                        doc.text(`€ ${financialSummary.paitoneNetCompensation.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        doc.setTextColor(100);
-                        finalY += 7;
-                    } else {
-                        doc.setTextColor(150);
-                        doc.text(`Compenso lordo Paitone incluso nel fatturato lordo:`, 14, finalY);
-                        doc.text(`+ € ${paitoneSummary.compensation.toFixed(2)}`, 200, finalY, { align: 'right' });
-                        doc.setTextColor(100);
-                        finalY += 7;
-                    }
-                    
-                    doc.text(`Utile Non Fatturato:`, 14, finalY);
-                    doc.text(`€ ${financialSummary.totalNotInvoicedIncome.toFixed(2)}`, 200, finalY, { align: 'right' });
-                    finalY += 2;
-                    
-                    doc.line(14, finalY, 200, finalY); 
-                    finalY += 7;
-                    
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0);
-                    const totalLabel = 'Totale Netto Complessivo:';
-                    doc.text(totalLabel, 14, finalY);
-                    doc.text(`€ ${totalOverall.toFixed(2)}`, 200, finalY, { align: 'right' });
-                     doc.setTextColor(100);
-
-
                     finalY = checkPageBreak(finalY, 20) + 15;
                     doc.setFontSize(14);
                     doc.setFont('helvetica', 'bold');
@@ -425,8 +360,9 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                                 className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 bg-zinc-800"
                                 disabled={loading}
                             />
-                            <span className="text-sm font-medium text-zinc-300">Mostra dettagli Netto (Tasse) nel PDF</span>
+                            <span className="text-sm font-medium text-zinc-300">Mostra anche dettagli netti e tasse nel PDF</span>
                          </label>
+                         <p className="text-xs text-zinc-500 mt-2">I totali lordi e gli scaglioni Paitone restano sempre visibili.</p>
                     </div>
 
                     <div className="bg-black/20 p-3 rounded-xl border border-white/5">
