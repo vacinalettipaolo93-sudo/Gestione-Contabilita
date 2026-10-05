@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Lesson } from '../types';
 import { TrashIcon, PlusIcon, ReceiptPercentIcon } from './icons';
 import { DEFAULT_PAITONE_COMPENSATION } from '../paitoneCompensation';
+import { moveLocation, normalizeLocationOrder } from '../locationOrder';
 
 const isSportInUse = (sportId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId);
 const isLessonTypeInUse = (sportId: string, lessonTypeId: string, lessons: Lesson[]) => lessons.some(l => l.sportId === sportId && l.lessonTypeId === lessonTypeId);
@@ -16,6 +17,9 @@ const normalizeSettings = (settings: Settings): Settings => {
     if (!clonedSettings.paitoneCompensation || typeof clonedSettings.paitoneCompensation !== 'object') {
         clonedSettings.paitoneCompensation = { ...DEFAULT_PAITONE_COMPENSATION };
     }
+    clonedSettings.sports.forEach(sport => {
+        sport.locations = normalizeLocationOrder(sport.locations);
+    });
     return clonedSettings;
 };
 
@@ -29,10 +33,12 @@ const SettingsForm: React.FC<{
 }> = ({ isOpen, onClose, settings, lessons, onSave, onRestoreLatestBackup }) => {
 
     const [localSettings, setLocalSettings] = useState<Settings>(normalizeSettings(settings));
+    const [reorderMessage, setReorderMessage] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setLocalSettings(normalizeSettings(settings));
+            setReorderMessage('');
         }
     }, [settings, isOpen]);
 
@@ -108,7 +114,8 @@ const SettingsForm: React.FC<{
         updateSettings(draft => {
             draft.sports[sportIndex].locations.push({
                 id: `loc-${Date.now()}`,
-                name: 'Nuova Sede'
+                name: 'Nuova Sede',
+                order: draft.sports[sportIndex].locations.length,
             });
         });
     };
@@ -119,6 +126,7 @@ const SettingsForm: React.FC<{
             delete draft.sports[sportIndex].prices[locationId];
             delete draft.sports[sportIndex].costs[locationId];
             draft.sports[sportIndex].locations.splice(locIndex, 1);
+            draft.sports[sportIndex].locations = normalizeLocationOrder(draft.sports[sportIndex].locations);
         });
     };
 
@@ -126,6 +134,16 @@ const SettingsForm: React.FC<{
         updateSettings(draft => {
             draft.sports[sportIndex].locations[locIndex].name = name;
         });
+    };
+
+    const reorderLocation = (sportIndex: number, locationId: string, targetIndex: number) => {
+        const sport = localSettings.sports[sportIndex];
+        const location = sport.locations.find(loc => loc.id === locationId);
+        if (!location || targetIndex < 0 || targetIndex >= sport.locations.length) return;
+        updateSettings(draft => {
+            draft.sports[sportIndex].locations = moveLocation(draft.sports[sportIndex].locations, locationId, targetIndex);
+        });
+        setReorderMessage(`${location.name} (${sport.name}): posizione ${targetIndex + 1} di ${sport.locations.length}.`);
     };
 
     const updatePrice = (sportIndex: number, locationId: string, lessonTypeId: string, price: number) => {
@@ -162,6 +180,7 @@ const SettingsForm: React.FC<{
                 </div>
 
                 <div className="space-y-8">
+                    <p role="status" aria-live="polite" className="sr-only">{reorderMessage}</p>
                     {/* General Settings Section */}
                     <div className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <div className="flex items-center gap-2 mb-4">
@@ -365,16 +384,36 @@ const SettingsForm: React.FC<{
                                         <div className="flex justify-between items-center mb-3">
                                             <h4 className="font-semibold text-zinc-400 uppercase text-xs tracking-wider">Sedi</h4>
                                         </div>
+                                        <p className="text-xs text-zinc-500 mb-3">Usa le frecce per riordinare le sedi, poi premi Salva Tutto. Prezzi e costi restano associati alla sede.</p>
                                         <div className="space-y-3">
                                             {sport.locations.map((loc, locIndex) => {
                                                 const locUsed = isLocationInUse(sport.id, loc.id, lessons);
                                                 return (
                                                     <div key={loc.id} className="flex items-center gap-2 group">
+                                                        <div className="flex flex-col">
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Sposta su ${loc.name} (${sport.name})`}
+                                                                title="Sposta su"
+                                                                disabled={locIndex === 0}
+                                                                onClick={() => reorderLocation(sportIndex, loc.id, locIndex - 1)}
+                                                                className="px-2 py-1 text-zinc-300 hover:bg-indigo-500/20 rounded focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            >↑</button>
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Sposta giù ${loc.name} (${sport.name})`}
+                                                                title="Sposta giù"
+                                                                disabled={locIndex === sport.locations.length - 1}
+                                                                onClick={() => reorderLocation(sportIndex, loc.id, locIndex + 1)}
+                                                                className="px-2 py-1 text-zinc-300 hover:bg-indigo-500/20 rounded focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            >↓</button>
+                                                        </div>
                                                         <input
                                                             type="text"
+                                                            aria-label={`Nome sede ${locIndex + 1} (${sport.name})`}
                                                             value={loc.name}
                                                             onChange={(e) => updateLocationName(sportIndex, locIndex, e.target.value)}
-                                                            className="flex-grow px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-zinc-200 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                                                            className="min-w-0 flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-zinc-200 focus:ring-2 focus:ring-indigo-500/50 outline-none"
                                                         />
                                                         <button
                                                             onClick={() => removeLocation(sportIndex, locIndex)}

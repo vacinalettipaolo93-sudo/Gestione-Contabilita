@@ -1,11 +1,13 @@
 import React from 'react';
 import { BanknotesIcon, DocumentTextIcon, DocumentMinusIcon, ClipboardListIcon } from './icons';
+import { orderLocationEntries } from '../locationOrder';
 
 interface SummaryProps {
   totalLessons: number;
   lessonsBySport: Record<string, number>;
   lessonsByLessonType: Record<string, number>;
   lessonsByLocation: Record<string, number>;
+  locationNames: string[];
   totalInvoicedGross: number;
   totalInvoicedNet: number;
   totalNotInvoicedIncome: number;
@@ -34,12 +36,12 @@ const SummaryCard: React.FC<{ title: string; value: string; subValue?: string; i
   </div>
 );
 
-const BreakdownCard: React.FC<{ title: string; data: Record<string, number> }> = ({ title, data }) => (
+const BreakdownCard: React.FC<{ title: string; data: Record<string, number>; locationNames?: string[] }> = ({ title, data, locationNames }) => (
   <div className="bg-zinc-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-none h-full">
     <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4 border-b border-white/5 pb-2">{title}</h3>
     <div className="flex flex-wrap gap-3">
       {Object.keys(data).length > 0 ? (
-        Object.entries(data).map(([name, count]) => (
+        (locationNames ? orderLocationEntries(data, locationNames) : Object.entries(data)).map(([name, count]) => (
           <div className="flex items-center gap-3 bg-black/20 px-3 py-2 rounded-lg border border-white/5 flex-grow" key={name}>
             <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold text-sm">
               {count}
@@ -63,6 +65,7 @@ const Summary: React.FC<SummaryProps> = ({
   lessonsBySport,
   lessonsByLessonType,
   lessonsByLocation,
+  locationNames,
   totalInvoicedGross,
   totalInvoicedNet,
   totalNotInvoicedIncome,
@@ -124,7 +127,7 @@ const Summary: React.FC<SummaryProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <BreakdownCard title="Per Sport" data={lessonsBySport} />
         <BreakdownCard title="Per Tipo" data={lessonsByLessonType} />
-        <BreakdownCard title="Per Sede" data={lessonsByLocation} />
+        <BreakdownCard title="Per Sede" data={lessonsByLocation} locationNames={locationNames} />
       </div>
 
       <div className="bg-zinc-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-none">

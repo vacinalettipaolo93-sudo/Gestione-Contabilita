@@ -19,6 +19,21 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Q0nOeBXOog9OJy7Vt-4Cb1
 3. Run the app:
    `npm run dev`
 
+## Riordinare le sedi
+
+In **Impostazioni → Sedi**, usa i pulsanti **Sposta su / Sposta giù** accanto
+alla sede (anche con Tab e Invio/Spazio), quindi premi **Salva Tutto**.
+**Annulla** scarta le modifiche. L'ordine viene salvato su Firebase per ogni
+sport e utilizzato nei selettori, nelle tabelle prezzi/costi, nei riepiloghi e
+nei riepiloghi per sede del PDF; le lezioni restano in ordine cronologico.
+Prezzi, costi e lezioni rimangono collegati all'ID della sede.
+
+Le configurazioni precedenti, senza il campo `order`, mantengono l'ordine
+esistente: il campo viene aggiunto al successivo salvataggio, senza scritture
+automatiche al caricamento.
+
+Verifiche disponibili: `node --test *.test.js` e `npm run build`.
+
 ## PWA – Installazione su Android e iOS/iPadOS
 
 L'app è configurata come **Progressive Web App (PWA)** installabile su dispositivi mobili e desktop.

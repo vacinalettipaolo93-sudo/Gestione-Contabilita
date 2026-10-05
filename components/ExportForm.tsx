@@ -5,6 +5,7 @@ import { Lesson, Settings } from '../types';
 import { getLessonTypeDisplayName } from '../lessonUtils';
 import { DocumentArrowDownIcon, SpinnerIcon } from './icons';
 import { buildPdfFinancialSummary } from '../pdfFinancialSummary';
+import { orderLocationEntries } from '../locationOrder';
 
 interface ExportFormProps {
   isOpen: boolean;
@@ -214,13 +215,14 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     }, {} as Record<string, number>);
 
 
-                    const createBreakdownTable = (title: string, data: Record<string, number>) => {
+                    const locationNames = availableLocations.map(location => location.name);
+                    const createBreakdownTable = (title: string, data: Record<string, number>, byLocation = false) => {
                         if (Object.keys(data).length > 0) {
                             finalY = checkPageBreak(finalY, 25) + 8;
                             autoTable(doc, {
                                 startY: finalY,
                                 head: [[title, 'Num. Lezioni']],
-                                body: Object.entries(data).sort((a,b) => b[1] - a[1]),
+                                body: byLocation ? orderLocationEntries(data, locationNames) : Object.entries(data).sort((a,b) => b[1] - a[1]),
                                 theme: 'grid',
                                 headStyles: { fillColor: [75, 85, 99] }, 
                             });
@@ -228,11 +230,10 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                         }
                     };
                     
-                    const createFinancialBreakdownTable = (title: string, data: Record<string, number>) => {
+                    const createFinancialBreakdownTable = (title: string, data: Record<string, number>, byLocation = false) => {
                         if (Object.keys(data).length > 0) {
                             finalY = checkPageBreak(finalY, 25) + 8;
-                            const bodyData = Object.entries(data)
-                                .sort((a, b) => b[1] - a[1])
+                            const bodyData = (byLocation ? orderLocationEntries(data, locationNames) : Object.entries(data).sort((a, b) => b[1] - a[1]))
                                 .map(([name, total]) => [name, `€ ${total.toFixed(2)}`]);
                             
                             autoTable(doc, {
@@ -247,11 +248,11 @@ const ExportForm: React.FC<ExportFormProps> = ({ isOpen, onClose, lessons, setti
                     };
                     
                     createBreakdownTable('Lezioni per Sport', lessonsBySport);
-                    createBreakdownTable('Lezioni per Sede', lessonsByLocation);
+                    createBreakdownTable('Lezioni per Sede', lessonsByLocation, true);
                     createBreakdownTable('Lezioni per Tipo', lessonsByLessonType);
 
                     createFinancialBreakdownTable('Utile per Sport', profitBySport);
-                    createFinancialBreakdownTable('Utile per Sede', profitByLocation);
+                    createFinancialBreakdownTable('Utile per Sede', profitByLocation, true);
                     createFinancialBreakdownTable('Utile per Tipo', profitByLessonType);
 
                 } else {
