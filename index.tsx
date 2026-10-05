@@ -33,6 +33,7 @@ import { getLessonTypeDisplayName, isPaitoneRevenueLesson } from './lessonUtils'
 import { calculatePaitoneCompensation, sanitizePaitoneCompensationSettings } from './paitoneCompensation';
 import { isPaitoneRevenueEntryId, mergeLessonsWithPaitoneRevenue } from './paitoneRevenueFlow';
 import { calculateFinancialSummary } from './financialSummary';
+import { normalizeLocationOrder } from './locationOrder';
 
 interface PaitoneRevenueEntry {
   id: string;
@@ -104,7 +105,7 @@ const App: React.FC = () => {
                 id: sport.id || `sport-${Date.now()}`,
                 name: sport.name || 'Senza nome',
                 lessonTypes: Array.isArray(sport.lessonTypes) ? sport.lessonTypes : [],
-                locations: Array.isArray(sport.locations) ? sport.locations : [],
+                locations: normalizeLocationOrder(Array.isArray(sport.locations) ? sport.locations : []),
                 prices: (() => {
                   const lessonTypes = Array.isArray(sport.lessonTypes) ? sport.lessonTypes : [];
                   const locations = Array.isArray(sport.locations) ? sport.locations : [];
@@ -571,6 +572,7 @@ const App: React.FC = () => {
           lessonsBySport={summaryData.lessonsBySport}
           lessonsByLessonType={summaryData.lessonsByLessonType}
           lessonsByLocation={summaryData.lessonsByLocation}
+          locationNames={settings.sports.flatMap(sport => sport.locations.map(location => location.name))}
           totalInvoicedGross={summaryData.totalInvoicedGross}
           totalInvoicedNet={summaryData.totalInvoicedNet}
           totalNotInvoicedIncome={summaryData.totalNotInvoicedIncome}

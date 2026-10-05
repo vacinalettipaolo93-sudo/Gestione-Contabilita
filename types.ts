@@ -6,6 +6,7 @@ export interface LessonTypeConfig {
 export interface LocationConfig {
   id: string;
   name: string;
+  order?: number;
 }
 
 export interface SportSetting {

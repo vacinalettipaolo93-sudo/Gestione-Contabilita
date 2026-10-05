@@ -37,8 +37,8 @@ export const DEFAULT_SETTINGS: Settings = {
         { id: TENNIS_GROUP_ID, name: 'Gruppo Tennis' },
       ],
       locations: [
-        { id: SEDE_A_ID, name: 'Sede Principale A' },
-        { id: SEDE_B_ID, name: 'Sede Secondaria B' },
+        { id: SEDE_A_ID, name: 'Sede Principale A', order: 0 },
+        { id: SEDE_B_ID, name: 'Sede Secondaria B', order: 1 },
       ],
       prices: {
         [SEDE_A_ID]: {
@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
         { id: PADEL_GROUP_ID, name: 'Lezione Gruppo' },
       ],
       locations: [
-         { id: PADEL_CENTER_ID, name: 'Padel Center' },
+         { id: PADEL_CENTER_ID, name: 'Padel Center', order: 0 },
       ],
       prices: {
         [PADEL_CENTER_ID]: {
